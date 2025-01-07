@@ -108,8 +108,7 @@ func (s *ScenarioSearcher) Run() {
 	s.scenario_map.root.openScenarioPaths(s.machine.GetInitPaths())
 
 	running := true
-	for running {
-		s.machine.Initialize()
+	for {
 		target_branch := s.scenario_map.root
 
 		for {
@@ -126,6 +125,12 @@ func (s *ScenarioSearcher) Run() {
 			target_branch = target_branch.children[branch]
 			next_paths := s.machine.Forward(branch)
 			target_branch.openScenarioPaths(next_paths)
+		}
+
+		if running {
+			s.machine.Initialize()
+		} else {
+			break
 		}
 	}
 }
