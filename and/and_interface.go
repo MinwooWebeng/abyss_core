@@ -1,4 +1,4 @@
-package abyss_neighbor_discovery
+package and
 
 import "github.com/google/uuid"
 
@@ -10,6 +10,7 @@ type PeerSessionInfo struct {
 
 type IANDPeer interface {
 	IDHash() string
+	Status() int //0: OK | others: implementation-dependent error code.
 
 	TrySendJN(local_session_id uuid.UUID, path string) bool
 	TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []PeerSession) bool

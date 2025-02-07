@@ -1,4 +1,4 @@
-package abyss_neighbor_discovery
+package and
 
 import (
 	"time"
