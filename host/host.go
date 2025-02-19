@@ -92,7 +92,9 @@ func (h *AbyssNetHost) CancelJoin(local_session_id uuid.UUID) bool {
 func (h *AbyssNetHost) ListenAndServe() {
 	net_done := make(chan bool, 1)
 	go func() {
-		h.networkService.ListenAndServe(h.ctx)
+		if err := h.networkService.ListenAndServe(h.ctx); err != nil {
+			fmt.Println(time.Now().Format("00:00:00.000") + "[network service failed] " + err.Error())
+		}
 		net_done <- true
 	}()
 
@@ -108,7 +110,7 @@ func (h *AbyssNetHost) ListenAndServe() {
 func (h *AbyssNetHost) listenLoop() {
 	var wg sync.WaitGroup
 
-	accept_ch := h.networkService.AcceptChannel()
+	accept_ch := h.networkService.GetAbyssPeerChannel()
 	for {
 		select {
 		case <-h.ctx.Done():
