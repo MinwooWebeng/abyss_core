@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"abyss_neighbor_discovery/aurl"
 	abyss "abyss_neighbor_discovery/interfaces"
 
 	"github.com/google/uuid"
@@ -208,7 +209,10 @@ func (h *AbyssNetHost) eventLoop() {
 				h.joinFailHandler.OnJoinFail(e.LocalSessionID, e.Value, e.Text)
 				h.handlerMtx.Unlock()
 			case abyss.ConnectRequest:
-				h.networkService.ConnectAsync(e.Text)
+				url, err := aurl.ParseAURL(e.Text)
+				if err != nil {
+					h.networkService.ConnectAbyssAsync(h.ctx, url)
+				}
 			case abyss.TimerRequest:
 				target_local_session := e.LocalSessionID
 				duration := e.Value

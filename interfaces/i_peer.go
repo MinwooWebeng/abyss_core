@@ -32,4 +32,6 @@ type IANDPeer interface {
 	TrySendSNB(peer_session_id uuid.UUID, member_sessions []PeerSessionInfo) bool
 	TrySendCRR(peer_session_id uuid.UUID, member_sessions []PeerSessionInfo) bool
 	TrySendRST(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool
+
+	Close()
 }

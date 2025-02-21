@@ -1,6 +1,7 @@
 package net_service
 
 import (
+	abyss "abyss_neighbor_discovery/interfaces"
 	ahmp_message "abyss_neighbor_discovery/message"
 	"context"
 
@@ -10,10 +11,15 @@ import (
 
 type AbyssOutbound struct {
 	connection quic.Connection
-	identity   string
+	identity   abyss.IRemoteIdentity
 }
 
-func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection quic.Connection) {
+func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection quic.Connection, identity string) {
+	if connection == nil {
+		//failed to connect
+		h.abyssOutBound <- AbyssOutbound{nil, nil}
+	}
+
 	ahmp_stream, err := connection.OpenStreamSync(ctx)
 	if err != nil {
 		connection.CloseWithError(0, err.Error())
@@ -29,5 +35,5 @@ func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection qu
 		return
 	}
 
-	h.abyssOutBound <- AbyssOutbound{connection, dummy_auth.Name}
+	h.abyssOutBound <- AbyssOutbound{connection, nil}
 }

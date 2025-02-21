@@ -7,18 +7,19 @@ import (
 )
 
 type AbyssPeer struct {
-	identity string
+	origin *BetaNetService
+	abyss.IRemoteIdentity
+	inbound  AbyssInbound
+	outbound AbyssOutbound
 }
 
-func NewAbyssPeer(inbound AbyssInbound, outbound AbyssOutbound) *AbyssPeer {
-	return nil
-}
-
-func (p *AbyssPeer) IDHash() string {
-	return p.identity
-}
-func (p *AbyssPeer) ValidateSignature(payload []byte, hash []byte) bool {
-	return false
+func NewAbyssPeer(origin *BetaNetService, inbound AbyssInbound, outbound AbyssOutbound) *AbyssPeer {
+	result := new(AbyssPeer)
+	result.origin = origin
+	result.IRemoteIdentity = outbound.identity
+	result.inbound = inbound
+	result.outbound = outbound
+	return result
 }
 
 func (p *AbyssPeer) AhmpCh() chan abyss.IAhmpMessage {
@@ -48,4 +49,8 @@ func (p *AbyssPeer) TrySendCRR(peer_session_id uuid.UUID, member_sessions []abys
 }
 func (p *AbyssPeer) TrySendRST(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool {
 	return false
+}
+
+func (p *AbyssPeer) Close() {
+	p.origin.confirmPeerShutdown(p)
 }
