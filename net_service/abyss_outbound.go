@@ -18,6 +18,7 @@ func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection qu
 	if connection == nil {
 		//failed to connect
 		h.abyssOutBound <- AbyssOutbound{nil, nil}
+		return
 	}
 
 	ahmp_stream, err := connection.OpenStreamSync(ctx)
@@ -35,5 +36,5 @@ func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection qu
 		return
 	}
 
-	h.abyssOutBound <- AbyssOutbound{connection, nil}
+	h.abyssOutBound <- AbyssOutbound{connection, NewBetaRemoteIdentity(identity)}
 }

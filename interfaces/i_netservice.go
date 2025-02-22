@@ -6,11 +6,6 @@ import (
 	"net"
 )
 
-type ILocalIdentity interface {
-	IDHash() string
-	Sign(payload []byte) []byte
-}
-
 type IPreAccepter interface {
 	PreAccept(identity IRemoteIdentity, address *net.UDPAddr) (bool, int, string)
 }
@@ -18,6 +13,8 @@ type IPreAccepter interface {
 // 1. AbyssAsync 'always' succeeds, resulting in IANDPeer -> if connection failed, IANDPeer methods return error.
 // 2. Abyst may fail at any moment
 type INetworkService interface {
+	LocalAURL() *aurl.AURL
+
 	HandlePreAccept(preaccept_handler IPreAccepter) // if false, return status code and message
 
 	ListenAndServe(ctx context.Context) error

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"math/big"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -27,6 +28,8 @@ type BetaNetService struct {
 	tlsConf       *tls.Config
 	quicConf      *quic.Config
 
+	local_aurl *aurl.AURL
+
 	preAccepter abyss.IPreAccepter
 
 	abyssInBound  chan AbyssInbound
@@ -39,7 +42,21 @@ type BetaNetService struct {
 	abystServerCH chan abyss.IAbystServerPeer
 }
 
-func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector abyss.IAddressSelector) (*BetaNetService, bool) {
+func _getLocalIP() (string, error) {
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{
+		IP:   net.IPv4(8, 8, 8, 8), // Google's public DNS as an example
+		Port: 53,
+	})
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String(), nil
+}
+
+func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector abyss.IAddressSelector) (*BetaNetService, error) {
 	result := new(BetaNetService)
 
 	result.localIdentity = local_identity
@@ -47,13 +64,26 @@ func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector aby
 
 	udpConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	result.quicTransport = &quic.Transport{Conn: udpConn}
 	if result.tlsConf, err = NewDefaultTlsConf(); err != nil {
-		return nil, false
+		return nil, err
 	}
 	result.quicConf = NewDefaultQuicConf()
+
+	local_port := strconv.Itoa(udpConn.LocalAddr().(*net.UDPAddr).Port)
+	local_ip, err := _getLocalIP()
+	if err != nil {
+		return nil, err
+	}
+	result.local_aurl, err = aurl.ParseAURL("abyss:" +
+		local_identity.IDHash() +
+		":" + local_ip + ":" + local_port +
+		"|127.0.0.1:" + local_port)
+	if err != nil {
+		return nil, err
+	}
 
 	result.abyssInBound = make(chan AbyssInbound, 4)
 	result.abyssOutBound = make(chan AbyssOutbound, 4)
@@ -64,7 +94,7 @@ func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector aby
 	result.abyssPeerCH = make(chan abyss.IANDPeer, 32)
 	result.abystServerCH = make(chan abyss.IAbystServerPeer, 64)
 
-	return result, true
+	return result, nil
 }
 
 func NewDefaultTlsConf() (*tls.Config, error) {
@@ -104,6 +134,10 @@ func NewDefaultQuicConf() *quic.Config {
 		Allow0RTT:                     true,
 		EnableDatagrams:               true,
 	}
+}
+
+func (h *BetaNetService) LocalAURL() *aurl.AURL {
+	return h.local_aurl
 }
 
 func (h *BetaNetService) HandlePreAccept(preaccept_handler abyss.IPreAccepter) {

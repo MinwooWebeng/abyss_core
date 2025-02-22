@@ -1,6 +1,8 @@
 package interfaces
 
 import (
+	"abyss_neighbor_discovery/aurl"
+
 	"github.com/google/uuid"
 )
 
@@ -10,13 +12,8 @@ type PeerSession struct {
 }
 
 type PeerSessionInfo struct {
-	AURL      AURL
+	AURL      *aurl.AURL
 	SessionID uuid.UUID
-}
-
-type IRemoteIdentity interface {
-	IDHash() string
-	ValidateSignature(payload []byte, hash []byte) bool
 }
 
 type IANDPeer interface {

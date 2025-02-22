@@ -12,7 +12,10 @@ import (
 
 func TestHost(t *testing.T) {
 	var local_identity abyss.ILocalIdentity
-	var address_selector abyss.IAddressSelector
+	address_selector := &abyss_net.AddressSelector{
+		LocalPrivateAddr: []byte{192, 168, 56, 1},
+		LocalPublicAddr:  []byte{143, 248, 49, 116},
+	}
 	netserv, _ := abyss_net.NewBetaNetService(local_identity, address_selector)
 	abyss_host.NewAbyssNetHost(context.TODO(), netserv, nil)
 }

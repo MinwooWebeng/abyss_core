@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-type AURL interface {
+type IAURL interface {
 	ToString() string
 	Scheme() string
 	Hash() string

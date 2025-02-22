@@ -3,8 +3,8 @@ package net_service
 import "net"
 
 type AddressSelector struct {
-	local_privateaddr net.IP
-	local_publicaddr  net.IP //may not be available
+	LocalPrivateAddr net.IP
+	LocalPublicAddr  net.IP //may not be available
 }
 
 func (s *AddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*net.UDPAddr {
@@ -28,7 +28,7 @@ func (s *AddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*n
 			continue
 		}
 
-		if address.IP.Equal(s.local_publicaddr) {
+		if address.IP.Equal(s.LocalPublicAddr) {
 			continue //ignore same public address
 		}
 
@@ -36,7 +36,7 @@ func (s *AddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*n
 	}
 
 	if len(public_addresses) == 0 { //no public address found
-		if privateaddr != nil && !privateaddr.IP.Equal(s.local_privateaddr) {
+		if privateaddr != nil && !privateaddr.IP.Equal(s.LocalPrivateAddr) {
 			return []*net.UDPAddr{privateaddr}
 		}
 
