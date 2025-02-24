@@ -1,13 +1,43 @@
 package net_service
 
-import "net"
+import (
+	"net"
+	"sync"
+)
 
-type AddressSelector struct {
-	LocalPrivateAddr net.IP
-	LocalPublicAddr  net.IP //may not be available
+type BetaAddressSelector struct {
+	localPrivateAddr net.IP
+	localPublicAddr  net.IP //can be added later
+
+	mtx *sync.Mutex
 }
 
-func (s *AddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*net.UDPAddr {
+func NewBetaAddressSelector() *BetaAddressSelector {
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{
+		IP:   net.IPv4(8, 8, 8, 8), // Google's public DNS as an example
+		Port: 53,
+	})
+	if err != nil {
+		panic("no network interface detected")
+	}
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	conn.Close()
+
+	return &BetaAddressSelector{
+		localAddr.IP,
+		net.IPv4zero,
+		new(sync.Mutex),
+	}
+}
+
+func (s *BetaAddressSelector) SetPublicIP(ip net.IP) {
+	s.mtx.Lock()
+	s.localPublicAddr = ip
+	s.mtx.Unlock()
+}
+
+func (s *BetaAddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*net.UDPAddr {
 	public_addresses := make([]*net.UDPAddr, 0)
 
 	var loopbackaddr *net.UDPAddr
@@ -28,7 +58,10 @@ func (s *AddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*n
 			continue
 		}
 
-		if address.IP.Equal(s.LocalPublicAddr) {
+		s.mtx.Lock()
+		is_pub_eq := address.IP.Equal(s.localPublicAddr)
+		s.mtx.Unlock()
+		if is_pub_eq {
 			continue //ignore same public address
 		}
 
@@ -36,7 +69,7 @@ func (s *AddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*n
 	}
 
 	if len(public_addresses) == 0 { //no public address found
-		if privateaddr != nil && !privateaddr.IP.Equal(s.LocalPrivateAddr) {
+		if privateaddr != nil && !privateaddr.IP.Equal(s.localPrivateAddr) {
 			return []*net.UDPAddr{privateaddr}
 		}
 

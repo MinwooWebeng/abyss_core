@@ -9,15 +9,13 @@ import (
 
 func TestNetHost(t *testing.T) {
 	local_identity := abyss_net.NewBetaLocalIdentity("mallang")
-	address_selector := &abyss_net.AddressSelector{
-		LocalPrivateAddr: []byte{192, 168, 56, 1},
-		LocalPublicAddr:  []byte{143, 248, 49, 116},
-	}
+	address_selector := abyss_net.NewBetaAddressSelector()
 	netserv, err := abyss_net.NewBetaNetService(local_identity, address_selector)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	url := netserv.LocalAURL()
+	fmt.Println(url)
 
 	fmt.Println(url.ToString())
 

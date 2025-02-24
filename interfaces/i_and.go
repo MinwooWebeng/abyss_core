@@ -18,10 +18,10 @@ const (
 type NeighborEvent struct {
 	Type           NeighborEventType
 	LocalSessionID uuid.UUID
-	Peer           IANDPeer
-	PeerSessionID  uuid.UUID
-	Text           string
-	Value          int
+	PeerSession
+	Text   string
+	Value  int
+	Object interface{}
 }
 
 type ANDERROR int

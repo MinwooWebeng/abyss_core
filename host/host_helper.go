@@ -1,16 +1,16 @@
-package test
+package host
 
 import (
 	"context"
-	"testing"
 
-	abyss_host "abyss_neighbor_discovery/host"
+	abyss_and "abyss_neighbor_discovery/and"
 	abyss_net "abyss_neighbor_discovery/net_service"
 )
 
-func TestHost(t *testing.T) {
+func NewBetaAbyssNetHost(name string) *AbyssNetHost {
 	local_identity := abyss_net.NewBetaLocalIdentity("mallang")
 	address_selector := abyss_net.NewBetaAddressSelector()
 	netserv, _ := abyss_net.NewBetaNetService(local_identity, address_selector)
-	abyss_host.NewAbyssNetHost(context.TODO(), netserv, nil)
+
+	return NewAbyssNetHost(context.Background(), netserv, abyss_and.NewAND(name))
 }
