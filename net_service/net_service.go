@@ -193,23 +193,23 @@ func (h *BetaNetService) ConstructingAbyssPeers(ctx context.Context) {
 }
 
 func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error {
-	if url.Scheme() != "abyss" {
+	if url.Scheme != "abyss" {
 		return errors.New("url scheme mismatch")
 	}
 
-	candidate_addresses := h.addressSelector.FilterAddressCandidates(url.Addresses())
+	candidate_addresses := h.addressSelector.FilterAddressCandidates(url.Addresses)
 	if len(candidate_addresses) == 0 {
 		return errors.New("no valid IP address")
 	}
 
 	h.outbound_ongoing_mtx.Lock()
-	if _, ok := h.outbound_ongoing[url.Hash()]; ok {
+	if _, ok := h.outbound_ongoing[url.Hash]; ok {
 		return errors.New("redundant connect trial")
 	}
-	h.outbound_ongoing[url.Hash()] = nil //now raise outbound connection ongoing flag
+	h.outbound_ongoing[url.Hash] = nil //now raise outbound connection ongoing flag
 	h.outbound_ongoing_mtx.Unlock()
 
-	go h._connectAbyss(ctx, candidate_addresses, url.Hash())
+	go h._connectAbyss(ctx, candidate_addresses, url.Hash)
 	return nil
 }
 
@@ -222,14 +222,14 @@ func (h *BetaNetService) _connectAbyss(ctx context.Context, addresses []*net.UDP
 }
 
 func (h *BetaNetService) ConnectAbyst(ctx context.Context, url *aurl.AURL) (abyss.IAbystClientPeer, error) {
-	if url.Scheme() != "abyst" {
+	if url.Scheme != "abyst" {
 		return nil, errors.New("url scheme mismatch")
 	}
 
 	var net_addr *net.UDPAddr
 
 	h.outbound_ongoing_mtx.Lock()
-	net_addr, ok := h.outbound_ongoing[url.Hash()]
+	net_addr, ok := h.outbound_ongoing[url.Hash]
 	h.outbound_ongoing_mtx.Unlock()
 
 	if !ok {

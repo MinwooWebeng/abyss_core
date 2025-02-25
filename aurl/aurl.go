@@ -8,10 +8,10 @@ import (
 )
 
 type AURL struct {
-	scheme    string //abyss(ahmp) or abyst(http3)
-	hash      string
-	addresses []*net.UDPAddr
-	path      string
+	Scheme    string //abyss(ahmp) or abyst(http3)
+	Hash      string
+	Addresses []*net.UDPAddr
+	Path      string
 }
 
 // abyss:abc:9.8.7.6:1605/somepath
@@ -20,27 +20,14 @@ type AURL struct {
 // abyss:abc:9.8.7.6:1605
 // abyss:abc
 func (a *AURL) ToString() string {
-	if len(a.addresses) == 0 {
-		return "abyss:" + a.hash + a.path
+	if len(a.Addresses) == 0 {
+		return "abyss:" + a.Hash + a.Path
 	}
-	candidates_string := make([]string, len(a.addresses))
-	for i, c := range a.addresses {
+	candidates_string := make([]string, len(a.Addresses))
+	for i, c := range a.Addresses {
 		candidates_string[i] = c.String()
 	}
-	return "abyss:" + a.hash + ":" + strings.Join(candidates_string, "|") + a.path
-}
-
-func (a *AURL) Scheme() string {
-	return a.scheme
-}
-func (a *AURL) Hash() string {
-	return a.hash
-}
-func (a *AURL) Addresses() []*net.UDPAddr {
-	return a.addresses
-}
-func (a *AURL) Path() string {
-	return a.path
+	return "abyss:" + a.Hash + ":" + strings.Join(candidates_string, "|") + a.Path
 }
 
 type AURLParseError struct {
@@ -84,10 +71,10 @@ func ParseAURL(raw string) (*AURL, error) {
 	if hash_endpos == -1 {
 		//no candidates, no path
 		return &AURL{
-			scheme:    scheme,
-			hash:      body,
-			addresses: []*net.UDPAddr{},
-			path:      "/",
+			Scheme:    scheme,
+			Hash:      body,
+			Addresses: []*net.UDPAddr{},
+			Path:      "/",
 		}, nil
 	}
 	hash := body[:hash_endpos]
@@ -125,18 +112,18 @@ func ParseAURL(raw string) (*AURL, error) {
 		}
 
 		return &AURL{
-			scheme:    scheme,
-			hash:      hash,
-			addresses: candidates,
-			path:      path,
+			Scheme:    scheme,
+			Hash:      hash,
+			Addresses: candidates,
+			Path:      path,
 		}, nil
 	} else if body[hash_endpos] == '/' {
 		//only path
 		return &AURL{
-			scheme:    scheme,
-			hash:      hash,
-			addresses: []*net.UDPAddr{},
-			path:      body[hash_endpos:],
+			Scheme:    scheme,
+			Hash:      hash,
+			Addresses: []*net.UDPAddr{},
+			Path:      body[hash_endpos:],
 		}, nil
 	}
 	panic("ParseAbyssURL: implementation error")

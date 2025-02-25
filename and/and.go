@@ -391,10 +391,10 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.PeerSession, wo
 	}
 
 	for _, member_session := range member_sessions {
-		if _, ok := world.pre_members[member_session.AURL.Hash()]; ok {
+		if _, ok := world.pre_members[member_session.AURL.Hash]; ok {
 			continue
 		}
-		world.pre_conn_members[member_session.AURL.Hash()] = member_session.SessionID
+		world.pre_conn_members[member_session.AURL.Hash] = member_session.SessionID
 		a.eventCh <- abyss.NeighborEvent{
 			Type:   abyss.ConnectRequest,
 			Object: member_session.AURL,
@@ -433,19 +433,19 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.PeerSession, me
 	}
 
 	// this is vulnerable to fabricated JNI flooding
-	if _, ok := world.members[member_info.AURL.Hash()]; ok {
+	if _, ok := world.members[member_info.AURL.Hash]; ok {
 		return 0
 	}
-	if _, ok := world.pre_members[member_info.AURL.Hash()]; ok {
+	if _, ok := world.pre_members[member_info.AURL.Hash]; ok {
 		return 0
 	}
-	if _, ok := world.pre_conn_members[member_info.AURL.Hash()]; ok {
+	if _, ok := world.pre_conn_members[member_info.AURL.Hash]; ok {
 		return 0
 	}
 
-	if member, ok := a.peers[member_info.AURL.Hash()]; ok {
+	if member, ok := a.peers[member_info.AURL.Hash]; ok {
 		member_session := abyss.PeerSession{Peer: member, PeerSessionID: member_info.SessionID}
-		world.pre_members[member_info.AURL.Hash()] = PreMemSession{
+		world.pre_members[member_info.AURL.Hash] = PreMemSession{
 			state:       PRE_MEM_CONNECTED,
 			PeerSession: member_session,
 		}
@@ -457,7 +457,7 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.PeerSession, me
 		return 0
 	}
 
-	world.pre_conn_members[member_info.AURL.Hash()] = member_info.SessionID
+	world.pre_conn_members[member_info.AURL.Hash] = member_info.SessionID
 	a.eventCh <- abyss.NeighborEvent{
 		Type:   abyss.ConnectRequest,
 		Object: member_info.AURL,

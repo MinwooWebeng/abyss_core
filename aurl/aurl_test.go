@@ -13,13 +13,13 @@ func ParsePrintAURL(aurl string) {
 		fmt.Println(err.Error() + "\n")
 		return
 	}
-	fmt.Println("Hash: " + _aurl.hash)
+	fmt.Println("Hash: " + _aurl.Hash)
 	fmt.Print("Addr: ")
-	for i, c := range _aurl.addresses {
+	for i, c := range _aurl.Addresses {
 		fmt.Print("[", i, "] "+c.String()+" ")
 	}
 	fmt.Println("")
-	fmt.Println("Path:" + _aurl.path)
+	fmt.Println("Path:" + _aurl.Path)
 	fmt.Println(_aurl.ToString() + "\n")
 }
 func TestAurl(t *testing.T) {
