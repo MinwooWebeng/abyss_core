@@ -13,62 +13,28 @@ import (
 )
 
 type AbyssNetHost struct {
-	ctx         context.Context
+	ctx         context.Context //set at ListenAndServe(ctx)
 	listen_done chan bool
 	event_done  chan bool
 
 	networkService             abyss.INetworkService
 	neighborDiscoveryAlgorithm abyss.INeighborDiscovery
-	handlerMtx                 *sync.Mutex
+	pathResolver               abyss.IPathResolver
 
-	pathResolver          abyss.IPathResolver
-	sessionRequestHandler abyss.ISessionRequestHandler
-	sessionReadyHandler   abyss.ISessionReadyHandler
-	sessionCloseHandler   abyss.ISessionCloseHandler
-	joinSuccessHandler    abyss.IJoinSuccessHandler
-	joinFailHandler       abyss.IJoinFailHandler
+	worlds map[uuid.UUID]
 }
 
-func NewAbyssNetHost(ctx context.Context, netServ abyss.INetworkService, nda abyss.INeighborDiscovery) *AbyssNetHost {
+func NewAbyssNetHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, path_resolver abyss.IPathResolver) *AbyssNetHost {
 	return &AbyssNetHost{
-		ctx:                        ctx,
 		listen_done:                make(chan bool, 1),
 		event_done:                 make(chan bool, 1),
 		networkService:             netServ,
 		neighborDiscoveryAlgorithm: nda,
-		handlerMtx:                 new(sync.Mutex),
+		pathResolver:               path_resolver,
 	}
 }
 
-func (h *AbyssNetHost) Handle(handler abyss.IAllHandler) {
-	h.HandlePathResolve(handler)
-	h.HandleSessionRequest(handler)
-	h.HandleSessionReady(handler)
-	h.HandleSessionClose(handler)
-	h.HandleJoinSuccess(handler)
-	h.HandleJoinFail(handler)
-}
-
-func (h *AbyssNetHost) HandlePathResolve(handler abyss.IPathResolver) {
-	h.pathResolver = handler
-}
-func (h *AbyssNetHost) HandleSessionRequest(handler abyss.ISessionRequestHandler) {
-	h.sessionRequestHandler = handler
-}
-func (h *AbyssNetHost) HandleSessionReady(handler abyss.ISessionReadyHandler) {
-	h.sessionReadyHandler = handler
-}
-func (h *AbyssNetHost) HandleSessionClose(handler abyss.ISessionCloseHandler) {
-	h.sessionCloseHandler = handler
-}
-func (h *AbyssNetHost) HandleJoinSuccess(handler abyss.IJoinSuccessHandler) {
-	h.joinSuccessHandler = handler
-}
-func (h *AbyssNetHost) HandleJoinFail(handler abyss.IJoinFailHandler) {
-	h.joinFailHandler = handler
-}
-
-func (h *AbyssNetHost) OpenWorld(local_session_id uuid.UUID, world_url string) bool {
+func (h *AbyssNetHost) OpenWorld(local_session_id uuid.UUID, world_url string) (chan abyss.WorldEvents, error) {
 	retval := h.neighborDiscoveryAlgorithm.OpenWorld(local_session_id, world_url)
 
 	if retval == abyss.EINVAL {
@@ -78,8 +44,7 @@ func (h *AbyssNetHost) OpenWorld(local_session_id uuid.UUID, world_url string) b
 	}
 	return true
 }
-
-func (h *AbyssNetHost) JoinWorld(ctx context.Context, local_session_id uuid.UUID, url string) {
+func (h *AbyssNetHost) JoinWorld(ctx context.Context, local_session_id uuid.UUID, url string) (chan abyss.WorldEvents, error) {
 
 }
 func (h *AbyssNetHost) joinPeerWorld(local_session_id uuid.UUID, peer abyss.IANDPeer, path string) bool {
@@ -103,15 +68,19 @@ func (h *AbyssNetHost) cancelJoin(local_session_id uuid.UUID) bool {
 	return true
 }
 
-func (h *AbyssNetHost) ListenAndServe() {
+func (h *AbyssNetHost) ListenAndServe(ctx context.Context) {
+	if h.ctx != nil {
+		panic("ListenAndServe called twice")
+	}
+	h.ctx = ctx
+
 	net_done := make(chan bool, 1)
 	go func() {
-		if err := h.networkService.ListenAndServe(h.ctx); err != nil {
+		if err := h.networkService.ListenAndServe(ctx); err != nil {
 			fmt.Println(time.Now().Format("00:00:00.000") + "[network service failed] " + err.Error())
 		}
 		net_done <- true
 	}()
-
 	go h.listenLoop()
 	go h.eventLoop()
 
@@ -142,7 +111,6 @@ func (h *AbyssNetHost) listenLoop() {
 }
 
 func (h *AbyssNetHost) serveLoop(peer abyss.IANDPeer) {
-
 	retval := h.neighborDiscoveryAlgorithm.PeerConnected(peer)
 	if retval != 0 {
 		return
@@ -156,11 +124,9 @@ func (h *AbyssNetHost) serveLoop(peer abyss.IANDPeer) {
 		case message := <-ahmp_channel:
 			switch t := message.Type(); t {
 			case abyss.JN:
-				h.handlerMtx.Lock()
 				local_session_id, ok := h.pathResolver.PathToSessionID(message.Text(), peer.IDHash())
-				h.handlerMtx.Unlock()
 				if !ok {
-					continue
+					continue // TODO: respond with proper error code
 				}
 				h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
 			case abyss.JOK:
@@ -196,7 +162,7 @@ func (h *AbyssNetHost) eventLoop() {
 			return
 		case e := <-event_ch:
 			switch e.Type {
-			case abyss.SessionRequest:
+			case abyss.ANDSessionRequest:
 				h.handlerMtx.Lock()
 				ok, code, message := h.sessionRequestHandler.OnSessionRequest(e.LocalSessionID, e.Peer, e.PeerSessionID)
 				h.handlerMtx.Unlock()
@@ -205,28 +171,28 @@ func (h *AbyssNetHost) eventLoop() {
 				} else {
 					h.neighborDiscoveryAlgorithm.DeclineSession(e.LocalSessionID, abyss.PeerSession{Peer: e.Peer, PeerSessionID: e.PeerSessionID}, code, message)
 				}
-			case abyss.SessionReady:
+			case abyss.ANDSessionReady:
 				h.handlerMtx.Lock()
 				h.sessionReadyHandler.OnSessionReady(e.LocalSessionID, e.Peer, e.PeerSessionID)
 				h.handlerMtx.Unlock()
-			case abyss.SessionClose:
+			case abyss.ANDSessionClose:
 				h.handlerMtx.Lock()
 				h.sessionCloseHandler.OnSessionClose(e.LocalSessionID, e.Peer, e.PeerSessionID)
 				h.handlerMtx.Unlock()
-			case abyss.JoinSuccess:
+			case abyss.ANDJoinSuccess:
 				h.handlerMtx.Lock()
 				h.joinSuccessHandler.OnJoinSuccess(e.LocalSessionID, e.Text)
 				h.handlerMtx.Unlock()
-			case abyss.JoinFail:
+			case abyss.ANDJoinFail:
 				h.handlerMtx.Lock()
 				h.joinFailHandler.OnJoinFail(e.LocalSessionID, e.Value, e.Text)
 				h.handlerMtx.Unlock()
-			case abyss.ConnectRequest:
+			case abyss.ANDConnectRequest:
 				url, err := aurl.ParseAURL(e.Text)
 				if err != nil {
 					h.networkService.ConnectAbyssAsync(h.ctx, url)
 				}
-			case abyss.TimerRequest:
+			case abyss.ANDTimerRequest:
 				target_local_session := e.LocalSessionID
 				duration := e.Value
 				wg.Add(1)
@@ -238,7 +204,7 @@ func (h *AbyssNetHost) eventLoop() {
 						h.neighborDiscoveryAlgorithm.TimerExpire(target_local_session)
 					}
 				}()
-			case abyss.NeighborEventDebug:
+			case abyss.ANDNeighborEventDebug:
 				fmt.Println(time.Now().Format("00:00:00.000") + " " + e.Text)
 			}
 		}

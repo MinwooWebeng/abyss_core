@@ -46,19 +46,19 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 	peer_hash := peer.IDHash()
 	if _, ok := a.peers[peer_hash]; ok {
 		a.eventCh <- abyss.NeighborEvent{
-			Type: abyss.NeighborEventDebug,
+			Type: abyss.ANDNeighborEventDebug,
 			Text: "peer already connected"}
 		return abyss.EPANIC
 	}
 	if _, ok := a.dead_peers[peer_hash]; ok {
 		a.eventCh <- abyss.NeighborEvent{
-			Type: abyss.NeighborEventDebug,
+			Type: abyss.ANDNeighborEventDebug,
 			Text: "dead peer reconnected without cleanup"}
 		return abyss.EPANIC
 	}
 	if a.local_hash == peer_hash {
 		a.eventCh <- abyss.NeighborEvent{
-			Type: abyss.NeighborEventDebug,
+			Type: abyss.ANDNeighborEventDebug,
 			Text: "self connection"}
 		return abyss.EPANIC
 	}
@@ -69,7 +69,7 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 		for _, join_target := range a.join_targets {
 			if _, ok := join_target.pre_members[peer_hash]; ok {
 				a.eventCh <- abyss.NeighborEvent{
-					Type: abyss.NeighborEventDebug,
+					Type: abyss.ANDNeighborEventDebug,
 					Text: "join target corrupted - PeerConnected"}
 				return abyss.EPANIC
 			}
@@ -80,19 +80,19 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 		if DEBUG {
 			if _, ok := world.members[peer_hash]; ok {
 				a.eventCh <- abyss.NeighborEvent{
-					Type: abyss.NeighborEventDebug,
+					Type: abyss.ANDNeighborEventDebug,
 					Text: "world members corrupted - PeerConnected"}
 				return abyss.EPANIC
 			}
 			if _, ok := world.snb_targets[peer_hash]; ok {
 				a.eventCh <- abyss.NeighborEvent{
-					Type: abyss.NeighborEventDebug,
+					Type: abyss.ANDNeighborEventDebug,
 					Text: "world snb_targets corrupted - PeerConnected"}
 				return abyss.EPANIC
 			}
 			if _, ok := world.pre_members[peer_hash]; ok {
 				a.eventCh <- abyss.NeighborEvent{
-					Type: abyss.NeighborEventDebug,
+					Type: abyss.ANDNeighborEventDebug,
 					Text: "world pre_mem_members corrupted - PeerConnected"}
 				return abyss.EPANIC
 			}
@@ -102,7 +102,7 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 			peer_session := abyss.PeerSession{Peer: peer, PeerSessionID: pre_conn_session_id}
 			world.pre_members[peer_hash] = PreMemSession{state: PRE_MEM_CONNECTED, PeerSession: peer_session}
 			a.eventCh <- abyss.NeighborEvent{
-				Type:           abyss.SessionRequest,
+				Type:           abyss.ANDSessionRequest,
 				LocalSessionID: lssid,
 				PeerSession:    peer_session,
 			}
@@ -125,7 +125,7 @@ func (a *AND) PeerClose(peer abyss.IANDPeer) abyss.ANDERROR {
 		return 0
 	} else {
 		a.eventCh <- abyss.NeighborEvent{
-			Type: abyss.NeighborEventDebug,
+			Type: abyss.ANDNeighborEventDebug,
 			Text: "closing unknown peer: " + peer_hash}
 		return abyss.EPANIC
 	}
@@ -141,7 +141,7 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 
 	a.worlds[local_session_id] = NewWorld(local_session_id, world_url)
 	a.eventCh <- abyss.NeighborEvent{
-		Type:           abyss.JoinSuccess,
+		Type:           abyss.ANDJoinSuccess,
 		LocalSessionID: local_session_id,
 		Text:           world_url,
 	}
@@ -182,7 +182,7 @@ func (a *AND) CancelJoin(local_session_id uuid.UUID) abyss.ANDERROR { //this doe
 	}
 
 	a.eventCh <- abyss.NeighborEvent{
-		Type:           abyss.JoinFail,
+		Type:           abyss.ANDJoinFail,
 		LocalSessionID: local_session_id,
 		Text:           JNM_CANCELED,
 		Value:          JNC_CANCELED,
@@ -205,7 +205,7 @@ func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.PeerS
 	if DEBUG {
 		if _, ok := world.members[peer_hash]; ok {
 			a.eventCh <- abyss.NeighborEvent{
-				Type: abyss.NeighborEventDebug,
+				Type: abyss.ANDNeighborEventDebug,
 				Text: "world members corrupted - 3"}
 			return abyss.EPANIC
 		}
@@ -223,7 +223,7 @@ func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.PeerS
 		delete(world.pre_members, peer_hash)
 		world.members[peer_hash] = pre_member.PeerSession
 		a.eventCh <- abyss.NeighborEvent{
-			Type:           abyss.SessionReady,
+			Type:           abyss.ANDSessionReady,
 			LocalSessionID: local_session_id,
 			PeerSession:    peer_session,
 		}
@@ -304,7 +304,7 @@ func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {
 			dead_peers = append(dead_peers, peer_session.Peer)
 		}
 		a.eventCh <- abyss.NeighborEvent{
-			Type:           abyss.SessionClose,
+			Type:           abyss.ANDSessionClose,
 			LocalSessionID: world.local_session_id,
 			PeerSession:    peer_session,
 		}
@@ -347,7 +347,7 @@ func (a *AND) JN(local_session_id uuid.UUID, peer_session abyss.PeerSession) aby
 	// clean join request
 	world.pre_members[peer_hash] = PreMemSession{state: PRE_MEM_JN, PeerSession: peer_session}
 	a.eventCh <- abyss.NeighborEvent{
-		Type:           abyss.SessionRequest,
+		Type:           abyss.ANDSessionRequest,
 		LocalSessionID: local_session_id,
 		PeerSession:    peer_session,
 	}
@@ -369,14 +369,14 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.PeerSession, wo
 	delete(a.join_targets, local_session_id)
 	a.worlds[local_session_id] = world
 	a.eventCh <- abyss.NeighborEvent{
-		Type:           abyss.JoinSuccess,
+		Type:           abyss.ANDJoinSuccess,
 		LocalSessionID: local_session_id,
 		Text:           world_url,
 	}
 
 	world.pre_members[peer_session.Peer.IDHash()] = PreMemSession{state: PRE_MEM_RECVED, PeerSession: peer_session}
 	a.eventCh <- abyss.NeighborEvent{
-		Type:           abyss.SessionRequest,
+		Type:           abyss.ANDSessionRequest,
 		LocalSessionID: local_session_id,
 		PeerSession:    peer_session,
 	}
@@ -384,7 +384,7 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.PeerSession, wo
 	for pre_mem_hash, pre_mem_session := range join_target.pre_members {
 		world.pre_members[pre_mem_hash] = PreMemSession{state: PRE_MEM_RECVED, PeerSession: pre_mem_session}
 		a.eventCh <- abyss.NeighborEvent{
-			Type:           abyss.SessionRequest,
+			Type:           abyss.ANDSessionRequest,
 			LocalSessionID: local_session_id,
 			PeerSession:    pre_mem_session,
 		}
@@ -396,7 +396,7 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.PeerSession, wo
 		}
 		world.pre_conn_members[member_session.AURL.Hash] = member_session.SessionID
 		a.eventCh <- abyss.NeighborEvent{
-			Type:   abyss.ConnectRequest,
+			Type:   abyss.ANDConnectRequest,
 			Object: member_session.AURL,
 		}
 	}
@@ -414,7 +414,7 @@ func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, mes
 
 	delete(a.join_targets, local_session_id) // it should never have pre members - what if it does? - IDK :/
 	a.eventCh <- abyss.NeighborEvent{
-		Type:           abyss.JoinFail,
+		Type:           abyss.ANDJoinFail,
 		LocalSessionID: local_session_id,
 		Text:           message,
 		Value:          code,
@@ -450,7 +450,7 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.PeerSession, me
 			PeerSession: member_session,
 		}
 		a.eventCh <- abyss.NeighborEvent{
-			Type:           abyss.SessionRequest,
+			Type:           abyss.ANDSessionRequest,
 			LocalSessionID: local_session_id,
 			PeerSession:    member_session,
 		}
@@ -459,7 +459,7 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.PeerSession, me
 
 	world.pre_conn_members[member_info.AURL.Hash] = member_info.SessionID
 	a.eventCh <- abyss.NeighborEvent{
-		Type:   abyss.ConnectRequest,
+		Type:   abyss.ANDConnectRequest,
 		Object: member_info.AURL,
 	}
 	return 0
@@ -533,7 +533,7 @@ func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.PeerSession) ab
 			delete(world.pre_members, peer_hash)
 			world.members[peer_hash] = pre_mem.PeerSession
 			a.eventCh <- abyss.NeighborEvent{
-				Type:           abyss.SessionReady,
+				Type:           abyss.ANDSessionReady,
 				LocalSessionID: local_session_id,
 				PeerSession:    pre_mem.PeerSession,
 			}
@@ -586,23 +586,23 @@ func (a *AND) dropWorldMember(world *World, peer_hash string) {
 		if DEBUG {
 			if _, ok := world.pre_members[peer_hash]; ok {
 				a.eventCh <- abyss.NeighborEvent{
-					Type: abyss.NeighborEventDebug,
+					Type: abyss.ANDNeighborEventDebug,
 					Text: "world pre_MEM_members corrupted - dropWorldMember",
 				}
 				a.eventCh <- abyss.NeighborEvent{
-					Type: abyss.NeighborEventDebug,
+					Type: abyss.ANDNeighborEventDebug,
 					Text: "world pre_MEM_members corrupted - dropWorldMember",
 				}
 			}
 			if _, ok := world.pre_conn_members[peer_hash]; ok {
 				a.eventCh <- abyss.NeighborEvent{
-					Type: abyss.NeighborEventDebug,
+					Type: abyss.ANDNeighborEventDebug,
 					Text: "world pre_conn_members corrupted - dropWorldMember",
 				}
 			}
 		}
 		a.eventCh <- abyss.NeighborEvent{
-			Type:           abyss.SessionClose,
+			Type:           abyss.ANDSessionClose,
 			LocalSessionID: world.local_session_id,
 			PeerSession:    peer_session,
 		}
@@ -611,7 +611,7 @@ func (a *AND) dropWorldMember(world *World, peer_hash string) {
 	if DEBUG {
 		if _, ok := world.snb_targets[peer_hash]; ok {
 			a.eventCh <- abyss.NeighborEvent{
-				Type: abyss.NeighborEventDebug,
+				Type: abyss.ANDNeighborEventDebug,
 				Text: "world snb_targets corrupted - dropWorldMember"}
 		}
 	}
@@ -625,7 +625,7 @@ func (a *AND) dropPeer(peer abyss.IANDPeer) {
 	if DEBUG {
 		if _, ok := a.peers[peer_hash]; !ok {
 			a.eventCh <- abyss.NeighborEvent{
-				Type: abyss.NeighborEventDebug,
+				Type: abyss.ANDNeighborEventDebug,
 				Text: "peer not found - dropPeer"}
 			return
 		}
@@ -649,7 +649,7 @@ func (a *AND) dropPeer(peer abyss.IANDPeer) {
 		}
 		delete(a.join_targets, ls)
 		a.eventCh <- abyss.NeighborEvent{
-			Type:           abyss.JoinFail,
+			Type:           abyss.ANDJoinFail,
 			LocalSessionID: ls,
 			Text:           JNM_CLOSED,
 			Value:          JNC_CLOSED,

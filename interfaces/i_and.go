@@ -5,14 +5,14 @@ import "github.com/google/uuid"
 type NeighborEventType int
 
 const (
-	SessionRequest NeighborEventType = iota + 2
-	SessionReady
-	SessionClose
-	JoinSuccess
-	JoinFail
-	ConnectRequest
-	TimerRequest
-	NeighborEventDebug
+	ANDSessionRequest NeighborEventType = iota + 2
+	ANDSessionReady
+	ANDSessionClose
+	ANDJoinSuccess
+	ANDJoinFail
+	ANDConnectRequest
+	ANDTimerRequest
+	ANDNeighborEventDebug
 )
 
 type NeighborEvent struct {

@@ -37,9 +37,33 @@ type IAllHandler interface {
 	IJoinFailHandler
 }
 
-type SessionRequestArguments struct {
-	LocalSessionID uuid.UUID
-	PeerSession
+type WorldEventType int
+
+const (
+	WorldPeerRequest WorldEventType = iota + 16
+	WorldPeerReady
+	WorldPeerLeave
+	WorldObjectAppend
+	WorldObjectDelete
+)
+
+type ObjectInfo struct {
+	ID      int
+	Address string
+}
+
+type WorldEvents struct {
+	Type            WorldEventType
+	PeerHash        string
+	SharedObject    []ObjectInfo
+	SharedObjectIDs []int
+}
+
+type IWorld interface {
+	GetEventChannel() chan WorldEvents
+	ApproveSessionRequest(peer_hash string)
+	DeclineSessionRequest(peer_hash string, code int, message string)
+	Leave()
 }
 
 type AbystInboundSession struct {
@@ -51,14 +75,8 @@ type IAbyssHost interface {
 	GetLocalAbyssURL() *aurl.AURL
 
 	//Abyss
-	HandlePathResolution(handler IPathResolver)
-
-	JoinWorld(ctx context.Context, session_id uuid.UUID, abyss_url string) chan SessionRequestArguments
-	OpenWorld(session_id uuid.UUID, web_url string) chan SessionRequestArguments
-
-	RespondSessionRequest(origin SessionRequestArguments, ok bool, code int, message string)
-
-	LeaveWorld(session_id uuid.UUID)
+	OpenWorld(session_id uuid.UUID, web_url string) (IWorld, error)
+	JoinWorld(ctx context.Context, session_id uuid.UUID, abyss_url string) (IWorld, error)
 
 	//Abyst
 	GetAbystAcceptChannel() chan AbystInboundSession
