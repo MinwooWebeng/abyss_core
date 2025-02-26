@@ -34,7 +34,7 @@ func NewAbyssNetHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery
 	}
 }
 
-func (h *AbyssNetHost) OpenWorld(local_session_id uuid.UUID, world_url string) (chan abyss.WorldEvents, error) {
+func (h *AbyssNetHost) OpenWorld(local_session_id uuid.UUID, world_url string) (chan abyss.IWorldEvent, error) {
 	retval := h.neighborDiscoveryAlgorithm.OpenWorld(local_session_id, world_url)
 
 	if retval == abyss.EINVAL {
@@ -44,7 +44,7 @@ func (h *AbyssNetHost) OpenWorld(local_session_id uuid.UUID, world_url string) (
 	}
 	return true
 }
-func (h *AbyssNetHost) JoinWorld(ctx context.Context, local_session_id uuid.UUID, url string) (chan abyss.WorldEvents, error) {
+func (h *AbyssNetHost) JoinWorld(ctx context.Context, local_session_id uuid.UUID, url string) (chan abyss.IWorldEvent, error) {
 
 }
 func (h *AbyssNetHost) joinPeerWorld(local_session_id uuid.UUID, peer abyss.IANDPeer, path string) bool {

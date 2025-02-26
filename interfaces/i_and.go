@@ -44,6 +44,9 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 	CancelJoin(local_session_id uuid.UUID) ANDERROR
 	AcceptSession(local_session_id uuid.UUID, peer_session PeerSession) ANDERROR
 	DeclineSession(local_session_id uuid.UUID, peer_session PeerSession, code int, message string) ANDERROR
+	AppendObject(local_session_id uuid.UUID, peer_session PeerSession, objects []ObjectInfo)
+	DeleteObject(local_session_id uuid.UUID, peer_session PeerSession, objectIDs []uuid.UUID)
+	ConfirmLeave(local_session_id uuid.UUID, peer_session PeerSession)
 	CloseWorld(local_session_id uuid.UUID) ANDERROR
 	TimerExpire(local_session_id uuid.UUID) ANDERROR
 

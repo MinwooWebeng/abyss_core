@@ -12,57 +12,41 @@ import (
 type IPathResolver interface {
 	PathToSessionID(path string, peer_hash string) (uuid.UUID, bool)
 }
-type ISessionRequestHandler interface {
-	OnSessionRequest(local_session_id uuid.UUID, peer IANDPeer, peer_session_id uuid.UUID) (ok bool, code int, message string)
-}
-type ISessionReadyHandler interface {
-	OnSessionReady(local_session_id uuid.UUID, peer IANDPeer, peer_session_id uuid.UUID)
-}
-type ISessionCloseHandler interface {
-	OnSessionClose(local_session_id uuid.UUID, peer IANDPeer, peer_session_id uuid.UUID)
-}
-type IJoinSuccessHandler interface {
-	OnJoinSuccess(local_session_id uuid.UUID, world_url string)
-}
-type IJoinFailHandler interface {
-	OnJoinFail(local_session_id uuid.UUID, code int, message string)
-}
-
-type IAllHandler interface {
-	IPathResolver
-	ISessionRequestHandler
-	ISessionReadyHandler
-	ISessionCloseHandler
-	IJoinSuccessHandler
-	IJoinFailHandler
-}
-
-type WorldEventType int
-
-const (
-	WorldPeerRequest WorldEventType = iota + 16
-	WorldPeerReady
-	WorldPeerLeave
-	WorldObjectAppend
-	WorldObjectDelete
-)
 
 type ObjectInfo struct {
-	ID      int
+	ID      uuid.UUID
 	Address string
 }
 
-type WorldEvents struct {
-	Type            WorldEventType
-	PeerHash        string
-	SharedObject    []ObjectInfo
-	SharedObjectIDs []int
+type IAbyssPeer interface {
+	Hash() string
+	AppendObjects(objects []ObjectInfo)
+	DeleteObjects(objectIDs []uuid.UUID)
+	Close() //confirm cleanup, must be called only once after receiving EWorldPeerLeave
 }
 
-type IWorld interface {
-	GetEventChannel() chan WorldEvents
-	ApproveSessionRequest(peer_hash string)
-	DeclineSessionRequest(peer_hash string, code int, message string)
+type EWorldPeerRequest struct {
+	PeerHash string
+	Accept   func()
+	Decline  func(code int, message string)
+}
+type EWorldPeerReady struct {
+	Peer IAbyssPeer
+}
+type EPeerObjectAppend struct {
+	PeerHash string
+	Objects  []ObjectInfo
+}
+type EPeerObjectDelete struct {
+	PeerHash  string
+	ObjectIDs []uuid.UUID
+}
+type EWorldPeerLeave struct { //now, the peer must be closed as soon as possible.
+	PeerHash string
+}
+
+type IAbyssWorld interface {
+	GetEventChannel() chan any
 	Leave()
 }
 
@@ -75,8 +59,8 @@ type IAbyssHost interface {
 	GetLocalAbyssURL() *aurl.AURL
 
 	//Abyss
-	OpenWorld(session_id uuid.UUID, web_url string) (IWorld, error)
-	JoinWorld(ctx context.Context, session_id uuid.UUID, abyss_url string) (IWorld, error)
+	OpenWorld(session_id uuid.UUID, web_url string) (IAbyssWorld, error)
+	JoinWorld(ctx context.Context, session_id uuid.UUID, abyss_url string) (IAbyssWorld, error)
 
 	//Abyst
 	GetAbystAcceptChannel() chan AbystInboundSession
