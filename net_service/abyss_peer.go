@@ -29,22 +29,22 @@ func (p *AbyssPeer) AhmpCh() chan abyss.IAhmpMessage {
 func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
 	return false
 }
-func (p *AbyssPeer) TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.UUID, world_url string, member_sessions []abyss.PeerSession) bool {
+func (p *AbyssPeer) TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {
 	return false
 }
 func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool {
 	return false
 }
-func (p *AbyssPeer) TrySendJNI(peer_session_id uuid.UUID, member_session abyss.PeerSession) bool {
+func (p *AbyssPeer) TrySendJNI(peer_session_id uuid.UUID, member_session abyss.ANDPeerSession) bool {
 	return false
 }
 func (p *AbyssPeer) TrySendMEM(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool {
 	return false
 }
-func (p *AbyssPeer) TrySendSNB(peer_session_id uuid.UUID, member_sessions []abyss.PeerSessionInfo) bool {
+func (p *AbyssPeer) TrySendSNB(peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
 	return false
 }
-func (p *AbyssPeer) TrySendCRR(peer_session_id uuid.UUID, member_sessions []abyss.PeerSessionInfo) bool {
+func (p *AbyssPeer) TrySendCRR(peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
 	return false
 }
 func (p *AbyssPeer) TrySendRST(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool {

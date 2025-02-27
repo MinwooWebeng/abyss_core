@@ -9,17 +9,17 @@ import (
 type Peer struct {
 	world       *World
 	hash        string
-	peerSession abyss.PeerSession
+	peerSession abyss.ANDPeerSession
 }
 
 func (p *Peer) Hash() string {
 	return p.hash
 }
-func (p *Peer) AppendObjects(objects []abyss.ObjectInfo) {
-	p.world.origin.AppendObject(p.world.session_id, p.peerSession, objects)
+func (p *Peer) AppendObjects(objects []abyss.ObjectInfo) bool {
+	return p.peerSession.Peer.TrySendSOA(p.peerSession.PeerSessionID, p.world.session_id, objects)
 }
-func (p *Peer) DeleteObjects(objectIDs []uuid.UUID) {
-	p.world.origin.DeleteObject(p.world.session_id, p.peerSession, objectIDs)
+func (p *Peer) DeleteObjects(objectIDs []uuid.UUID) bool {
+	return p.peerSession.Peer.TrySendSOD(p.peerSession.PeerSessionID, p.world.session_id, objectIDs)
 }
 func (p *Peer) Close() {
 	p.world.origin.ConfirmLeave(p.world.session_id, p.peerSession)

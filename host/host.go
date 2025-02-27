@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type AbyssNetHost struct {
+type AbyssHost struct {
 	ctx         context.Context //set at ListenAndServe(ctx)
 	listen_done chan bool
 	event_done  chan bool
@@ -21,54 +22,97 @@ type AbyssNetHost struct {
 	neighborDiscoveryAlgorithm abyss.INeighborDiscovery
 	pathResolver               abyss.IPathResolver
 
-	worlds map[uuid.UUID]
+	worlds     map[uuid.UUID]*World
+	worlds_mtx *sync.Mutex
+
+	join_queue map[uuid.UUID]chan abyss.NeighborEvent //forwarding of AND join result event.
+	join_q_mtx *sync.Mutex
 }
 
-func NewAbyssNetHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, path_resolver abyss.IPathResolver) *AbyssNetHost {
-	return &AbyssNetHost{
+func NewAbyssHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, path_resolver abyss.IPathResolver) *AbyssHost {
+	return &AbyssHost{
 		listen_done:                make(chan bool, 1),
 		event_done:                 make(chan bool, 1),
 		networkService:             netServ,
 		neighborDiscoveryAlgorithm: nda,
 		pathResolver:               path_resolver,
+		worlds:                     make(map[uuid.UUID]*World),
+		worlds_mtx:                 new(sync.Mutex),
+		join_queue:                 make(map[uuid.UUID]chan abyss.NeighborEvent),
+		join_q_mtx:                 new(sync.Mutex),
 	}
 }
 
-func (h *AbyssNetHost) OpenWorld(local_session_id uuid.UUID, world_url string) (chan abyss.IWorldEvent, error) {
-	retval := h.neighborDiscoveryAlgorithm.OpenWorld(local_session_id, world_url)
+func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
+	local_session_id := uuid.New()
+	new_world := NewWorld(h.neighborDiscoveryAlgorithm, local_session_id)
+	h.worlds_mtx.Lock()
+	h.worlds[local_session_id] = new_world
+	h.worlds_mtx.Unlock()
 
+	retval := h.neighborDiscoveryAlgorithm.OpenWorld(local_session_id, world_url)
 	if retval == abyss.EINVAL {
-		return false
+		h.worlds_mtx.Lock()
+		delete(h.worlds, local_session_id)
+		h.worlds_mtx.Unlock()
+		return nil, errors.New("OpenWorld: invalid arguments")
 	} else if retval == abyss.EPANIC {
 		panic("fatal:::AND corrupted while opening world")
 	}
-	return true
+	return new_world, nil
 }
-func (h *AbyssNetHost) JoinWorld(ctx context.Context, local_session_id uuid.UUID, url string) (chan abyss.IWorldEvent, error) {
+func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.IAbyssWorld, error) {
+	local_session_id := uuid.New()
 
-}
-func (h *AbyssNetHost) joinPeerWorld(local_session_id uuid.UUID, peer abyss.IANDPeer, path string) bool {
-	retval := h.neighborDiscoveryAlgorithm.JoinWorld(local_session_id, peer, path)
-
+	retval := h.neighborDiscoveryAlgorithm.JoinWorld(local_session_id, abyss_url)
 	if retval == abyss.EINVAL {
-		return false
+		return nil, errors.New("failed to join world::unknown error")
 	} else if retval == abyss.EPANIC {
 		panic("fatal:::AND corrupted while joining world")
 	}
-	return true
-}
-func (h *AbyssNetHost) cancelJoin(local_session_id uuid.UUID) bool {
-	retval := h.neighborDiscoveryAlgorithm.CancelJoin(local_session_id)
 
-	if retval == abyss.EINVAL {
-		return false
-	} else if retval == abyss.EPANIC {
-		panic("fatal:::AND corrupted while canceling join")
+	join_res_ch := make(chan abyss.NeighborEvent)
+
+	h.join_q_mtx.Lock()
+	h.join_queue[local_session_id] = join_res_ch
+	h.join_q_mtx.Unlock()
+
+	ctx_done_waiter := make(chan bool, 1)
+	go func() { //context watchdog
+		select {
+		case <-ctx.Done():
+			h.neighborDiscoveryAlgorithm.CancelJoin(local_session_id) //this request AND module to early-return join failure
+		case <-ctx_done_waiter:
+		}
+	}()
+
+	//wait for join result.
+	join_res := <-join_res_ch
+
+	//as join result arrived, kill the context watchdog goroutine.
+	ctx_done_waiter <- true
+
+	if join_res.Type != abyss.ANDJoinSuccess {
+		return nil, errors.New(join_res.Text)
 	}
-	return true
+
+	new_world := NewWorld(h.neighborDiscoveryAlgorithm, local_session_id)
+	h.worlds_mtx.Lock()
+	h.worlds[local_session_id] = new_world
+	h.worlds_mtx.Unlock()
+	return new_world, nil
 }
 
-func (h *AbyssNetHost) ListenAndServe(ctx context.Context) {
+func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
+	if h.neighborDiscoveryAlgorithm.CloseWorld(world.SessionID()) != 0 {
+		panic("World Leave failed")
+	}
+	h.worlds_mtx.Lock()
+	delete(h.worlds, world.SessionID())
+	h.worlds_mtx.Unlock()
+}
+
+func (h *AbyssHost) ListenAndServe(ctx context.Context) {
 	if h.ctx != nil {
 		panic("ListenAndServe called twice")
 	}
@@ -90,7 +134,7 @@ func (h *AbyssNetHost) ListenAndServe(ctx context.Context) {
 	<-net_done
 }
 
-func (h *AbyssNetHost) listenLoop() {
+func (h *AbyssHost) listenLoop() {
 	var wg sync.WaitGroup
 
 	accept_ch := h.networkService.GetAbyssPeerChannel()
@@ -110,7 +154,7 @@ func (h *AbyssNetHost) listenLoop() {
 	}
 }
 
-func (h *AbyssNetHost) serveLoop(peer abyss.IANDPeer) {
+func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 	retval := h.neighborDiscoveryAlgorithm.PeerConnected(peer)
 	if retval != 0 {
 		return
@@ -128,28 +172,28 @@ func (h *AbyssNetHost) serveLoop(peer abyss.IANDPeer) {
 				if !ok {
 					continue // TODO: respond with proper error code
 				}
-				h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
+				h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
 			case abyss.JOK:
-				h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID(), abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Text(), message.Neighbors())
+				h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Text(), message.Neighbors())
 			case abyss.JDN:
 				h.neighborDiscoveryAlgorithm.JDN(message.RecverSessionID(), message.Sender(), message.Code(), message.Text())
 			case abyss.JNI:
 				joiner := message.Neighbors()[0]
-				h.neighborDiscoveryAlgorithm.JNI(message.SenderSessionID(), abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, joiner)
+				h.neighborDiscoveryAlgorithm.JNI(message.SenderSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, joiner)
 			case abyss.MEM:
-				h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID(), abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
+				h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
 			case abyss.SNB:
-				h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID(), abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Texts())
+				h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Texts())
 			case abyss.CRR:
-				h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID(), abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Texts())
+				h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Texts())
 			case abyss.RST:
-				h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID(), abyss.PeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
+				h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
 			}
 		}
 	}
 }
 
-func (h *AbyssNetHost) eventLoop() {
+func (h *AbyssHost) eventLoop() {
 	event_ch := h.neighborDiscoveryAlgorithm.EventChannel()
 
 	var wg sync.WaitGroup
@@ -163,30 +207,35 @@ func (h *AbyssNetHost) eventLoop() {
 		case e := <-event_ch:
 			switch e.Type {
 			case abyss.ANDSessionRequest:
-				h.handlerMtx.Lock()
-				ok, code, message := h.sessionRequestHandler.OnSessionRequest(e.LocalSessionID, e.Peer, e.PeerSessionID)
-				h.handlerMtx.Unlock()
-				if ok {
-					h.neighborDiscoveryAlgorithm.AcceptSession(e.LocalSessionID, abyss.PeerSession{Peer: e.Peer, PeerSessionID: e.PeerSessionID})
-				} else {
-					h.neighborDiscoveryAlgorithm.DeclineSession(e.LocalSessionID, abyss.PeerSession{Peer: e.Peer, PeerSessionID: e.PeerSessionID}, code, message)
-				}
+				h.worlds_mtx.Lock()
+				world := h.worlds[e.LocalSessionID]
+				h.worlds_mtx.Unlock()
+
+				world.RaisePeerRequest(abyss.ANDPeerSession{
+					Peer:          e.Peer,
+					PeerSessionID: e.PeerSessionID,
+				})
 			case abyss.ANDSessionReady:
-				h.handlerMtx.Lock()
-				h.sessionReadyHandler.OnSessionReady(e.LocalSessionID, e.Peer, e.PeerSessionID)
-				h.handlerMtx.Unlock()
+				h.worlds_mtx.Lock()
+				world := h.worlds[e.LocalSessionID]
+				h.worlds_mtx.Unlock()
+
+				world.RaisePeerReady(abyss.ANDPeerSession{
+					Peer:          e.Peer,
+					PeerSessionID: e.PeerSessionID,
+				})
 			case abyss.ANDSessionClose:
-				h.handlerMtx.Lock()
-				h.sessionCloseHandler.OnSessionClose(e.LocalSessionID, e.Peer, e.PeerSessionID)
-				h.handlerMtx.Unlock()
-			case abyss.ANDJoinSuccess:
-				h.handlerMtx.Lock()
-				h.joinSuccessHandler.OnJoinSuccess(e.LocalSessionID, e.Text)
-				h.handlerMtx.Unlock()
-			case abyss.ANDJoinFail:
-				h.handlerMtx.Lock()
-				h.joinFailHandler.OnJoinFail(e.LocalSessionID, e.Value, e.Text)
-				h.handlerMtx.Unlock()
+				h.worlds_mtx.Lock()
+				world := h.worlds[e.LocalSessionID]
+				h.worlds_mtx.Unlock()
+
+				world.RaisePeerLeave(e.Peer.IDHash())
+			case abyss.ANDJoinSuccess, abyss.ANDJoinFail:
+				h.join_q_mtx.Lock()
+				join_res_ch := h.join_queue[e.LocalSessionID]
+				h.join_q_mtx.Unlock()
+
+				join_res_ch <- e
 			case abyss.ANDConnectRequest:
 				url, err := aurl.ParseAURL(e.Text)
 				if err != nil {

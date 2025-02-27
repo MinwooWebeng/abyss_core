@@ -20,8 +20,8 @@ type ObjectInfo struct {
 
 type IAbyssPeer interface {
 	Hash() string
-	AppendObjects(objects []ObjectInfo)
-	DeleteObjects(objectIDs []uuid.UUID)
+	AppendObjects(objects []ObjectInfo) bool
+	DeleteObjects(objectIDs []uuid.UUID) bool
 	Close() //confirm cleanup, must be called only once after receiving EWorldPeerLeave
 }
 
@@ -46,8 +46,8 @@ type EWorldPeerLeave struct { //now, the peer must be closed as soon as possible
 }
 
 type IAbyssWorld interface {
+	SessionID() uuid.UUID
 	GetEventChannel() chan any
-	Leave()
 }
 
 type AbystInboundSession struct {
@@ -59,8 +59,9 @@ type IAbyssHost interface {
 	GetLocalAbyssURL() *aurl.AURL
 
 	//Abyss
-	OpenWorld(session_id uuid.UUID, web_url string) (IAbyssWorld, error)
-	JoinWorld(ctx context.Context, session_id uuid.UUID, abyss_url string) (IAbyssWorld, error)
+	OpenWorld(web_url string) (IAbyssWorld, error)
+	JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (IAbyssWorld, error)
+	LeaveWorld(world IAbyssWorld)
 
 	//Abyst
 	GetAbystAcceptChannel() chan AbystInboundSession

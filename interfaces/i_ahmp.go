@@ -22,7 +22,7 @@ type IAhmpMessage interface {
 	Sender() IANDPeer
 	SenderSessionID() uuid.UUID
 	RecverSessionID() uuid.UUID
-	Neighbors() []PeerSessionInfo
+	Neighbors() []ANDPeerSessionInfo
 	Texts() []string
 	Text() string
 	Code() int

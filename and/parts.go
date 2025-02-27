@@ -15,23 +15,23 @@ const (
 
 type PreMemSession struct {
 	state int
-	abyss.PeerSession
+	abyss.ANDPeerSession
 }
 
 type World struct {
 	local_session_id uuid.UUID
 	world_url        string
-	members          map[string]abyss.PeerSession //id hash - peer session
-	pre_members      map[string]PreMemSession     //id hash - peer session (MEM sent)
-	pre_conn_members map[string]uuid.UUID         //id hash - peer session id (not connected)
-	snb_targets      map[string]int               //id hash - left SNB count
+	members          map[string]abyss.ANDPeerSession //id hash - peer session
+	pre_members      map[string]PreMemSession        //id hash - peer session (MEM sent)
+	pre_conn_members map[string]uuid.UUID            //id hash - peer session id (not connected)
+	snb_targets      map[string]int                  //id hash - left SNB count
 }
 
 func NewWorld(local_session_id uuid.UUID, world_url string) *World {
 	result := new(World)
 	result.local_session_id = local_session_id
 	result.world_url = world_url
-	result.members = make(map[string]abyss.PeerSession)
+	result.members = make(map[string]abyss.ANDPeerSession)
 	result.pre_members = make(map[string]PreMemSession)
 	result.pre_conn_members = make(map[string]uuid.UUID)
 	result.snb_targets = make(map[string]int)
@@ -39,26 +39,26 @@ func NewWorld(local_session_id uuid.UUID, world_url string) *World {
 }
 
 type WorldCandidate struct {
-	members map[string]abyss.PeerSession //MEM received (need to respond)
+	members map[string]abyss.ANDPeerSession //MEM received (need to respond)
 }
 
 func NewWorldCandidate() *WorldCandidate {
 	result := new(WorldCandidate)
-	result.members = make(map[string]abyss.PeerSession)
+	result.members = make(map[string]abyss.ANDPeerSession)
 	return result
 }
 
 type JoinTarget struct {
 	peer        abyss.IANDPeer
 	path        string
-	pre_members map[string]abyss.PeerSession
+	pre_members map[string]abyss.ANDPeerSession
 }
 
 func NewJoinTarget(peer abyss.IANDPeer, path string) *JoinTarget {
 	result := new(JoinTarget)
 	result.peer = peer
 	result.path = path
-	result.pre_members = make(map[string]abyss.PeerSession)
+	result.pre_members = make(map[string]abyss.ANDPeerSession)
 	return result
 }
 
