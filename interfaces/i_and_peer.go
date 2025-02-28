@@ -32,6 +32,4 @@ type IANDPeer interface {
 
 	TrySendSOA(peer_session_id uuid.UUID, local_session_id uuid.UUID, objects []ObjectInfo) bool
 	TrySendSOD(peer_session_id uuid.UUID, local_session_id uuid.UUID, objectIDs []uuid.UUID) bool
-
-	Close()
 }

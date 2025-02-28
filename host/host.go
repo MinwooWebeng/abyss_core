@@ -11,6 +11,7 @@ import (
 	abyss "abyss_neighbor_discovery/interfaces"
 
 	"github.com/google/uuid"
+	"github.com/quic-go/quic-go/http3"
 )
 
 type AbyssHost struct {
@@ -41,6 +42,10 @@ func NewAbyssHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, p
 		join_queue:                 make(map[uuid.UUID]chan abyss.NeighborEvent),
 		join_q_mtx:                 new(sync.Mutex),
 	}
+}
+
+func (h *AbyssHost) GetLocalAbyssURL() *aurl.AURL {
+	return nil
 }
 
 func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
@@ -102,7 +107,6 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 	h.worlds_mtx.Unlock()
 	return new_world, nil
 }
-
 func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
 	if h.neighborDiscoveryAlgorithm.CloseWorld(world.SessionID()) != 0 {
 		panic("World Leave failed")
@@ -110,6 +114,13 @@ func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
 	h.worlds_mtx.Lock()
 	delete(h.worlds, world.SessionID())
 	h.worlds_mtx.Unlock()
+}
+
+func (h *AbyssHost) GetAbystAcceptChannel() chan abyss.AbystInboundSession {
+	return nil
+}
+func (h *AbyssHost) GetAbystClientConnection(peer_hash string) (*http3.ClientConn, bool) {
+	return nil, false
 }
 
 func (h *AbyssHost) ListenAndServe(ctx context.Context) {

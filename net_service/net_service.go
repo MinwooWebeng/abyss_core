@@ -221,6 +221,16 @@ func (h *BetaNetService) _connectAbyss(ctx context.Context, addresses []*net.UDP
 	h.PrepareAbyssOutbound(ctx, connection, identity)
 }
 
+func (h *BetaNetService) GetAbyssPeerChannel() chan abyss.IANDPeer {
+	return h.abyssPeerCH
+}
+
+func (h *BetaNetService) CloseAbyssPeer(peer abyss.IANDPeer) {
+	h.outbound_ongoing_mtx.Lock()
+	delete(h.outbound_ongoing, peer.IDHash())
+	h.outbound_ongoing_mtx.Unlock()
+}
+
 func (h *BetaNetService) ConnectAbyst(ctx context.Context, url *aurl.AURL) (abyss.IAbystClientPeer, error) {
 	if url.Scheme != "abyst" {
 		return nil, errors.New("url scheme mismatch")
@@ -241,16 +251,6 @@ func (h *BetaNetService) ConnectAbyst(ctx context.Context, url *aurl.AURL) (abys
 	}
 
 	return connection, nil
-}
-
-func (h *BetaNetService) confirmPeerShutdown(peer abyss.IANDPeer) {
-	h.outbound_ongoing_mtx.Lock()
-	delete(h.outbound_ongoing, peer.IDHash())
-	h.outbound_ongoing_mtx.Unlock()
-}
-
-func (h *BetaNetService) GetAbyssPeerChannel() chan abyss.IANDPeer {
-	return h.abyssPeerCH
 }
 func (h *BetaNetService) GetAbystServerPeerChannel() chan abyss.IAbystServerPeer {
 	return h.abystServerCH

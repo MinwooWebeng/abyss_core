@@ -21,6 +21,3 @@ func (p *Peer) AppendObjects(objects []abyss.ObjectInfo) bool {
 func (p *Peer) DeleteObjects(objectIDs []uuid.UUID) bool {
 	return p.peerSession.Peer.TrySendSOD(p.peerSession.PeerSessionID, p.world.session_id, objectIDs)
 }
-func (p *Peer) Close() {
-	p.world.origin.ConfirmLeave(p.world.session_id, p.peerSession)
-}

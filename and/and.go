@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"abyss_neighbor_discovery/aurl"
 	abyss "abyss_neighbor_discovery/interfaces"
 )
 
@@ -36,10 +37,6 @@ func NewAND(local_hash string) *AND {
 
 func (a *AND) EventChannel() chan abyss.NeighborEvent {
 	return a.eventCh
-}
-
-func (a *AND) ResetPeerSession(local_session_id uuid.UUID, peer abyss.IANDPeer, peer_session_id uuid.UUID) {
-	a.resetOptDrop(peer, local_session_id, peer_session_id)
 }
 
 func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
@@ -148,10 +145,12 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 	return 0
 }
 
-func (a *AND) JoinWorld(local_session_id uuid.UUID, peer abyss.IANDPeer, path string) abyss.ANDERROR {
-	if _, ok := a.peers[peer.IDHash()]; !ok {
-		return abyss.EINVAL
+func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.ANDERROR {
+	peer, ok := a.peers[abyss_url.Hash]
+	if !ok { //require connection
+		return 0
 	}
+
 	if _, ok := a.join_targets[local_session_id]; ok {
 		return abyss.EINVAL
 	}
@@ -159,14 +158,15 @@ func (a *AND) JoinWorld(local_session_id uuid.UUID, peer abyss.IANDPeer, path st
 		return abyss.EINVAL
 	}
 
-	a.join_targets[local_session_id] = NewJoinTarget(peer, path)
-	if !peer.TrySendJN(local_session_id, path) {
+	a.join_targets[local_session_id] = NewJoinTarget(peer, abyss_url.Path)
+	if !peer.TrySendJN(local_session_id, abyss_url.Path) {
 		a.dropPeer(peer)
 	}
 	return 0
 }
 
-func (a *AND) CancelJoin(local_session_id uuid.UUID) abyss.ANDERROR { //this does not guarantee join cancellation.
+// this does not guarantee join cancellation.
+func (a *AND) CancelJoin(local_session_id uuid.UUID) abyss.ANDERROR {
 	join_target, ok := a.join_targets[local_session_id]
 	if !ok {
 		return abyss.EINVAL
@@ -290,6 +290,10 @@ func (a *AND) DeclineSession(local_session_id uuid.UUID, peer_session abyss.ANDP
 	default:
 		return abyss.EPANIC
 	}
+}
+
+func (a *AND) ResetPeerSession(local_session_id uuid.UUID, peer abyss.IANDPeer, peer_session_id uuid.UUID) {
+	a.resetOptDrop(peer, local_session_id, peer_session_id)
 }
 
 func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {

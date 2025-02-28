@@ -20,9 +20,10 @@ type INetworkService interface {
 	ListenAndServe(ctx context.Context) error
 
 	ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error
-	ConnectAbyst(ctx context.Context, url *aurl.AURL) (IAbystClientPeer, error)
+	GetAbyssPeerChannel() chan IANDPeer //abyss mutual connection
+	CloseAbyssPeer(peer IANDPeer)
 
-	GetAbyssPeerChannel() chan IANDPeer               //abyss mutual connection
+	ConnectAbyst(ctx context.Context, url *aurl.AURL) (IAbystClientPeer, error)
 	GetAbystServerPeerChannel() chan IAbystServerPeer //abyst server-side connection
 }
 

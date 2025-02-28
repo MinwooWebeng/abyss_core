@@ -22,7 +22,6 @@ type IAbyssPeer interface {
 	Hash() string
 	AppendObjects(objects []ObjectInfo) bool
 	DeleteObjects(objectIDs []uuid.UUID) bool
-	Close() //confirm cleanup, must be called only once after receiving EWorldPeerLeave
 }
 
 type EWorldPeerRequest struct {

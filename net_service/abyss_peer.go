@@ -51,6 +51,9 @@ func (p *AbyssPeer) TrySendRST(peer_session_id uuid.UUID, local_session_id uuid.
 	return false
 }
 
-func (p *AbyssPeer) Close() {
-	p.origin.confirmPeerShutdown(p)
+func (p *AbyssPeer) TrySendSOA(peer_session_id uuid.UUID, local_session_id uuid.UUID, objects []abyss.ObjectInfo) bool {
+	return false
+}
+func (p *AbyssPeer) TrySendSOD(peer_session_id uuid.UUID, local_session_id uuid.UUID, objectIDs []uuid.UUID) bool {
+	return false
 }

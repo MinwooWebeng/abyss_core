@@ -38,7 +38,6 @@ const (
 
 type INeighborDiscovery interface { // all calls must be thread-safe
 	EventChannel() chan NeighborEvent
-	ResetPeerSession(local_session_id uuid.UUID, peer IANDPeer, peer_session_id uuid.UUID)
 
 	//calls
 	PeerConnected(peer IANDPeer) ANDERROR
@@ -48,7 +47,7 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 	CancelJoin(local_session_id uuid.UUID) ANDERROR //This requests the join procedure to yield ANDJoinFail event. However, the request may be ignored.
 	AcceptSession(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
 	DeclineSession(local_session_id uuid.UUID, peer_session ANDPeerSession, code int, message string) ANDERROR
-	ConfirmLeave(local_session_id uuid.UUID, peer_session ANDPeerSession)
+	ResetPeerSession(local_session_id uuid.UUID, peer IANDPeer, peer_session_id uuid.UUID)
 	CloseWorld(local_session_id uuid.UUID) ANDERROR
 	TimerExpire(local_session_id uuid.UUID) ANDERROR
 
