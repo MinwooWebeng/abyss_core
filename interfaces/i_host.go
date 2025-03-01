@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 )
 
@@ -49,13 +48,10 @@ type IAbyssWorld interface {
 	GetEventChannel() chan any
 }
 
-type AbystInboundSession struct {
-	PeerHash   string
-	Connection quic.Connection
-}
-
 type IAbyssHost interface {
 	GetLocalAbyssURL() *aurl.AURL
+
+	OpenOutboundConnection(abyss_url *aurl.AURL)
 
 	//Abyss
 	OpenWorld(web_url string) (IAbyssWorld, error)
@@ -63,6 +59,6 @@ type IAbyssHost interface {
 	LeaveWorld(world IAbyssWorld)
 
 	//Abyst
-	GetAbystAcceptChannel() chan AbystInboundSession
-	GetAbystClientConnection(peer_hash string) (*http3.ClientConn, bool)
+	GetAbystClientConnection(ctx context.Context, peer_hash string) (*http3.ClientConn, error)
+	GetAbystServerPeerChannel() chan AbystInboundSession
 }

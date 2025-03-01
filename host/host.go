@@ -2,15 +2,19 @@ package host
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
 	"abyss_neighbor_discovery/aurl"
 	abyss "abyss_neighbor_discovery/interfaces"
+	"abyss_neighbor_discovery/tools/functional"
 
 	"github.com/google/uuid"
+	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 )
 
@@ -22,6 +26,8 @@ type AbyssHost struct {
 	networkService             abyss.INetworkService
 	neighborDiscoveryAlgorithm abyss.INeighborDiscovery
 	pathResolver               abyss.IPathResolver
+
+	abystClientTr *http3.Transport
 
 	worlds     map[uuid.UUID]*World
 	worlds_mtx *sync.Mutex
@@ -37,15 +43,36 @@ func NewAbyssHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, p
 		networkService:             netServ,
 		neighborDiscoveryAlgorithm: nda,
 		pathResolver:               path_resolver,
-		worlds:                     make(map[uuid.UUID]*World),
-		worlds_mtx:                 new(sync.Mutex),
-		join_queue:                 make(map[uuid.UUID]chan abyss.NeighborEvent),
-		join_q_mtx:                 new(sync.Mutex),
+		abystClientTr: &http3.Transport{
+			Dial: func(ctx context.Context, addr string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
+				return nil, errors.New("dialing in abyst transport is prohibited")
+			},
+		},
+		worlds:     make(map[uuid.UUID]*World),
+		worlds_mtx: new(sync.Mutex),
+		join_queue: make(map[uuid.UUID]chan abyss.NeighborEvent),
+		join_q_mtx: new(sync.Mutex),
 	}
 }
 
 func (h *AbyssHost) GetLocalAbyssURL() *aurl.AURL {
-	return nil
+	origin := h.networkService.LocalAURL()
+	return &aurl.AURL{
+		Scheme: origin.Scheme,
+		Hash:   origin.Hash,
+		Addresses: functional.Accum_all(
+			origin.Addresses,
+			make([]*net.UDPAddr, 0, len(origin.Addresses)),
+			func(addr *net.UDPAddr, acc []*net.UDPAddr) []*net.UDPAddr {
+				return append(acc, addr)
+			},
+		),
+		Path: origin.Path,
+	}
+}
+
+func (h *AbyssHost) OpenOutboundConnection(abyss_url *aurl.AURL) {
+	h.networkService.ConnectAbyssAsync(h.ctx, abyss_url)
 }
 
 func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
@@ -88,6 +115,7 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 		case <-ctx.Done():
 			h.neighborDiscoveryAlgorithm.CancelJoin(local_session_id) //this request AND module to early-return join failure
 		case <-ctx_done_waiter:
+			return
 		}
 	}()
 
@@ -116,11 +144,15 @@ func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
 	h.worlds_mtx.Unlock()
 }
 
-func (h *AbyssHost) GetAbystAcceptChannel() chan abyss.AbystInboundSession {
-	return nil
+func (h *AbyssHost) GetAbystClientConnection(ctx context.Context, peer_hash string) (*http3.ClientConn, error) {
+	conn, err := h.networkService.ConnectAbyst(ctx, peer_hash)
+	if err != nil {
+		return nil, err
+	}
+	return h.abystClientTr.NewClientConn(conn), nil
 }
-func (h *AbyssHost) GetAbystClientConnection(peer_hash string) (*http3.ClientConn, bool) {
-	return nil, false
+func (h *AbyssHost) GetAbystServerPeerChannel() chan abyss.AbystInboundSession {
+	return h.networkService.GetAbystServerPeerChannel()
 }
 
 func (h *AbyssHost) ListenAndServe(ctx context.Context) {
@@ -244,14 +276,12 @@ func (h *AbyssHost) eventLoop() {
 			case abyss.ANDJoinSuccess, abyss.ANDJoinFail:
 				h.join_q_mtx.Lock()
 				join_res_ch := h.join_queue[e.LocalSessionID]
+				delete(h.join_queue, e.LocalSessionID)
 				h.join_q_mtx.Unlock()
 
 				join_res_ch <- e
 			case abyss.ANDConnectRequest:
-				url, err := aurl.ParseAURL(e.Text)
-				if err != nil {
-					h.networkService.ConnectAbyssAsync(h.ctx, url)
-				}
+				h.networkService.ConnectAbyssAsync(h.ctx, e.Object.(*aurl.AURL))
 			case abyss.ANDTimerRequest:
 				target_local_session := e.LocalSessionID
 				duration := e.Value

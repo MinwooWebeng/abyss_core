@@ -4,10 +4,17 @@ import (
 	"abyss_neighbor_discovery/aurl"
 	"context"
 	"net"
+
+	"github.com/quic-go/quic-go"
 )
 
 type IPreAccepter interface {
 	PreAccept(identity IRemoteIdentity, address *net.UDPAddr) (bool, int, string)
+}
+
+type AbystInboundSession struct {
+	PeerHash   string
+	Connection quic.Connection
 }
 
 // 1. AbyssAsync 'always' succeeds, resulting in IANDPeer -> if connection failed, IANDPeer methods return error.
@@ -23,8 +30,8 @@ type INetworkService interface {
 	GetAbyssPeerChannel() chan IANDPeer //abyss mutual connection
 	CloseAbyssPeer(peer IANDPeer)
 
-	ConnectAbyst(ctx context.Context, url *aurl.AURL) (IAbystClientPeer, error)
-	GetAbystServerPeerChannel() chan IAbystServerPeer //abyst server-side connection
+	ConnectAbyst(ctx context.Context, peer_hash string) (quic.Connection, error)
+	GetAbystServerPeerChannel() chan AbystInboundSession //abyst server-side connection
 }
 
 type IAddressSelector interface {

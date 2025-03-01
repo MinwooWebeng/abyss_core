@@ -1,6 +1,8 @@
 package net_service
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 
 	abyss "abyss_neighbor_discovery/interfaces"
@@ -27,6 +29,7 @@ func (p *AbyssPeer) AhmpCh() chan abyss.IAhmpMessage {
 }
 
 func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
+	fmt.Println("sending JN!!")
 	return false
 }
 func (p *AbyssPeer) TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {

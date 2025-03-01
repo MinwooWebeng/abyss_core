@@ -6,6 +6,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/quic-go/quic-go"
 
+	abyss "abyss_neighbor_discovery/interfaces"
 	ahmp_message "abyss_neighbor_discovery/message"
 )
 
@@ -31,4 +32,9 @@ func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection qui
 	}
 
 	h.abyssInBound <- AbyssInbound{connection, dummy_auth.Name}
+}
+
+func (h *BetaNetService) PrepareAbystInbound(ctx context.Context, connection quic.Connection) {
+	//TODO
+	h.abystServerCH <- abyss.AbystInboundSession{PeerHash: "unknown", Connection: connection}
 }

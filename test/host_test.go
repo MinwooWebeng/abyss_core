@@ -46,8 +46,11 @@ func printWorldEvents(prefix string, host abyss.IAbyssHost, world abyss.IAbyssWo
 }
 
 func TestHost(t *testing.T) {
-	hostA, hostA_pathRes := abyss_host.NewBetaAbyssHost("hostA")
+	hostA, hostA_pathMap := abyss_host.NewBetaAbyssHost("hostA")
 	hostB, _ := abyss_host.NewBetaAbyssHost("hostB")
+
+	go hostA.ListenAndServe(context.Background())
+	go hostB.ListenAndServe(context.Background())
 
 	A_world, err := hostA.OpenWorld("http://a.world.com")
 	if err != nil {
@@ -55,16 +58,25 @@ func TestHost(t *testing.T) {
 		return
 	}
 	fmt.Println("[hostA] Opened World")
-	hostA_pathRes.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
-	go printWorldEvents("[hostA] ", hostA, A_world)
+	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
+	go printWorldEvents("[hostA]", hostA, A_world)
+
+	<-time.After(time.Second)
+	hostA.OpenOutboundConnection(hostB.GetLocalAbyssURL())
 
 	join_url := hostA.GetLocalAbyssURL()
 	join_url.Path = "/home"
-	B_A_world, err := hostB.JoinWorld(context.Background(), join_url)
+
+	fmt.Println("[hostB] Joining World")
+	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	B_A_world, err := hostB.JoinWorld(join_ctx, join_url)
+	join_ctx_cancel()
+
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("[hostB] Join Failed:::" + err.Error())
 		return
 	}
+	fmt.Println("[hostB] Joined World")
 
-	printWorldEvents("[hostB] ", hostB, B_A_world)
+	printWorldEvents("[hostB]", hostB, B_A_world)
 }

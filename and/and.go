@@ -14,24 +14,26 @@ const DEBUG = true
 type AND struct {
 	eventCh chan abyss.NeighborEvent
 
-	local_hash   string
-	peers        map[string]abyss.IANDPeer //id hash - peer
-	dead_peers   map[string]abyss.IANDPeer //id hash - peer // Communication failed, but not discarded.
-	join_targets map[uuid.UUID]*JoinTarget //local session id - target peer
-	worlds       map[uuid.UUID]*World      //local session id - world
+	local_hash              string
+	peers                   map[string]abyss.IANDPeer //id hash - peer
+	dead_peers              map[string]abyss.IANDPeer //id hash - peer // Communication failed, but not discarded.
+	join_targets_connecting map[uuid.UUID]*aurl.AURL  //local session id - target peer id hash
+	join_targets            map[uuid.UUID]*JoinTarget //local session id - target peer
+	worlds                  map[uuid.UUID]*World      //local session id - world
 
 	api_mtx *sync.Mutex
 }
 
 func NewAND(local_hash string) *AND {
 	return &AND{
-		eventCh:      make(chan abyss.NeighborEvent, 64),
-		local_hash:   local_hash,
-		peers:        make(map[string]abyss.IANDPeer),
-		dead_peers:   make(map[string]abyss.IANDPeer),
-		join_targets: make(map[uuid.UUID]*JoinTarget),
-		worlds:       make(map[uuid.UUID]*World),
-		api_mtx:      new(sync.Mutex),
+		eventCh:                 make(chan abyss.NeighborEvent, 64),
+		local_hash:              local_hash,
+		peers:                   make(map[string]abyss.IANDPeer),
+		dead_peers:              make(map[string]abyss.IANDPeer),
+		join_targets_connecting: make(map[uuid.UUID]*aurl.AURL),
+		join_targets:            make(map[uuid.UUID]*JoinTarget),
+		worlds:                  make(map[uuid.UUID]*World),
+		api_mtx:                 new(sync.Mutex),
 	}
 }
 
@@ -41,6 +43,7 @@ func (a *AND) EventChannel() chan abyss.NeighborEvent {
 
 func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 	peer_hash := peer.IDHash()
+	//fmt.Println("peer connected: " + peer_hash)
 	if _, ok := a.peers[peer_hash]; ok {
 		a.eventCh <- abyss.NeighborEvent{
 			Type: abyss.ANDNeighborEventDebug,
@@ -69,6 +72,15 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 					Type: abyss.ANDNeighborEventDebug,
 					Text: "join target corrupted - PeerConnected"}
 				return abyss.EPANIC
+			}
+		}
+	}
+
+	for lssid, join_aurl := range a.join_targets_connecting {
+		if join_aurl.Hash == peer_hash {
+			a.join_targets[lssid] = NewJoinTarget(peer, join_aurl.Path)
+			if !peer.TrySendJN(lssid, join_aurl.Path) {
+				a.dropPeer(peer)
 			}
 		}
 	}
@@ -148,6 +160,15 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.ANDERROR {
 	peer, ok := a.peers[abyss_url.Hash]
 	if !ok { //require connection
+		//check for redundant call
+		if _, ok := a.join_targets_connecting[local_session_id]; ok {
+			return abyss.EINVAL
+		}
+		a.join_targets_connecting[local_session_id] = abyss_url
+		a.eventCh <- abyss.NeighborEvent{
+			Type:   abyss.ANDConnectRequest,
+			Object: abyss_url,
+		}
 		return 0
 	}
 
@@ -167,6 +188,18 @@ func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.
 
 // this does not guarantee join cancellation.
 func (a *AND) CancelJoin(local_session_id uuid.UUID) abyss.ANDERROR {
+	//check for connecting join
+	if _, ok := a.join_targets_connecting[local_session_id]; ok {
+		a.eventCh <- abyss.NeighborEvent{
+			Type:           abyss.ANDJoinFail,
+			LocalSessionID: local_session_id,
+			Text:           JNM_CANCELED,
+			Value:          JNC_CANCELED,
+		}
+		delete(a.join_targets_connecting, local_session_id)
+		return 0
+	}
+
 	join_target, ok := a.join_targets[local_session_id]
 	if !ok {
 		return abyss.EINVAL

@@ -39,7 +39,7 @@ type BetaNetService struct {
 	outbound_ongoing_mtx *sync.Mutex
 
 	abyssPeerCH   chan abyss.IANDPeer
-	abystServerCH chan abyss.IAbystServerPeer
+	abystServerCH chan abyss.AbystInboundSession
 }
 
 func _getLocalIP() (string, error) {
@@ -92,7 +92,7 @@ func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector aby
 	result.outbound_ongoing_mtx = new(sync.Mutex)
 
 	result.abyssPeerCH = make(chan abyss.IANDPeer, 32)
-	result.abystServerCH = make(chan abyss.IAbystServerPeer, 64)
+	result.abystServerCH = make(chan abyss.AbystInboundSession, 64)
 
 	return result, nil
 }
@@ -149,7 +149,7 @@ func (h *BetaNetService) ListenAndServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	go h.ConstructingAbyssPeers(ctx)
+	go h.constructingAbyssPeers(ctx)
 
 	for {
 		connection, err := listener.Accept(ctx)
@@ -160,14 +160,14 @@ func (h *BetaNetService) ListenAndServe(ctx context.Context) error {
 		case abyss.NextProtoAbyss:
 			go h.PrepareAbyssInbound(ctx, connection)
 		case http3.NextProtoH3:
-			h.abystServerCH <- connection
+			go h.PrepareAbystInbound(ctx, connection)
 		default:
 			connection.CloseWithError(0, "unknown TLS ALPN protocol ID")
 		}
 	}
 }
 
-func (h *BetaNetService) ConstructingAbyssPeers(ctx context.Context) {
+func (h *BetaNetService) constructingAbyssPeers(ctx context.Context) {
 	//TODO: handle 'old' partial connections.
 	abyssInParts := make(map[string]AbyssInbound)
 	abyssOutParts := make(map[string]AbyssOutbound)
@@ -204,7 +204,8 @@ func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) 
 
 	h.outbound_ongoing_mtx.Lock()
 	if _, ok := h.outbound_ongoing[url.Hash]; ok {
-		return errors.New("redundant connect trial")
+		h.outbound_ongoing_mtx.Unlock()
+		return nil
 	}
 	h.outbound_ongoing[url.Hash] = nil //now raise outbound connection ongoing flag
 	h.outbound_ongoing_mtx.Unlock()
@@ -231,15 +232,11 @@ func (h *BetaNetService) CloseAbyssPeer(peer abyss.IANDPeer) {
 	h.outbound_ongoing_mtx.Unlock()
 }
 
-func (h *BetaNetService) ConnectAbyst(ctx context.Context, url *aurl.AURL) (abyss.IAbystClientPeer, error) {
-	if url.Scheme != "abyst" {
-		return nil, errors.New("url scheme mismatch")
-	}
-
+func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (quic.Connection, error) {
 	var net_addr *net.UDPAddr
 
 	h.outbound_ongoing_mtx.Lock()
-	net_addr, ok := h.outbound_ongoing[url.Hash]
+	net_addr, ok := h.outbound_ongoing[peer_hash]
 	h.outbound_ongoing_mtx.Unlock()
 
 	if !ok {
@@ -252,6 +249,6 @@ func (h *BetaNetService) ConnectAbyst(ctx context.Context, url *aurl.AURL) (abys
 
 	return connection, nil
 }
-func (h *BetaNetService) GetAbystServerPeerChannel() chan abyss.IAbystServerPeer {
+func (h *BetaNetService) GetAbystServerPeerChannel() chan abyss.AbystInboundSession {
 	return h.abystServerCH
 }

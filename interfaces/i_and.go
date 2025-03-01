@@ -25,7 +25,7 @@ type NeighborEvent struct {
 	ANDPeerSession
 	Text   string
 	Value  int
-	Object interface{}
+	Object any
 }
 
 type ANDERROR int
