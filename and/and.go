@@ -291,7 +291,7 @@ func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.ANDPe
 		member_sessions := make([]abyss.ANDPeerSession, 0, len(world.members))
 		dead_members := make([]abyss.IANDPeer, 0, len(world.members))
 		for _, mem := range world.members {
-			if !mem.Peer.TrySendJNI(mem.PeerSessionID, world.local_session_id, peer_session) {
+			if !mem.Peer.TrySendJNI(world.local_session_id, mem.PeerSessionID, peer_session) {
 				dead_members = append(dead_members, mem.Peer)
 				continue
 			}
@@ -430,6 +430,7 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	join_target, ok := a.join_targets[local_session_id]
 	if !ok {
 		a.resetOptDrop(peer_session.Peer, local_session_id, peer_session.PeerSessionID)
+		//fmt.Println("K")
 		return abyss.EINVAL
 	}
 	if join_target.peer != peer_session.Peer {

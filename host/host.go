@@ -259,13 +259,17 @@ func (h *AbyssHost) eventLoop() {
 			h.event_done <- true
 			return
 		case e := <-event_ch:
-			//fmt.Println("AND event raised")
 			switch e.Type {
 			case abyss.ANDSessionRequest:
 				fmt.Println("event ::: abyss.ANDSessionRequest")
 				h.worlds_mtx.Lock()
-				world := h.worlds[e.LocalSessionID]
+				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
+
+				if !ok {
+					fmt.Println("world not found")
+					return
+				}
 
 				world.RaisePeerRequest(abyss.ANDPeerSession{
 					Peer:          e.Peer,
@@ -274,8 +278,13 @@ func (h *AbyssHost) eventLoop() {
 			case abyss.ANDSessionReady:
 				fmt.Println("event ::: abyss.ANDSessionReady")
 				h.worlds_mtx.Lock()
-				world := h.worlds[e.LocalSessionID]
+				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
+
+				if !ok {
+					fmt.Println("world not found")
+					return
+				}
 
 				world.RaisePeerReady(abyss.ANDPeerSession{
 					Peer:          e.Peer,
@@ -284,8 +293,13 @@ func (h *AbyssHost) eventLoop() {
 			case abyss.ANDSessionClose:
 				fmt.Println("event ::: abyss.ANDSessionClose")
 				h.worlds_mtx.Lock()
-				world := h.worlds[e.LocalSessionID]
+				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
+
+				if !ok {
+					fmt.Println("world not found")
+					return
+				}
 
 				world.RaisePeerLeave(e.Peer.IDHash())
 			case abyss.ANDJoinSuccess, abyss.ANDJoinFail:

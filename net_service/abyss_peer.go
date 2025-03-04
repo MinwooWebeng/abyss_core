@@ -41,20 +41,32 @@ func (p *AbyssPeer) AhmpCh() chan any {
 }
 
 func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
-	fmt.Println("sending JN")
+	fmt.Print("sending JN")
+	fmt.Println(ahmp.RawJN{
+		SenderSessionID: local_session_id.String(),
+		Text:            path,
+	})
 	if p.outbound.cbor_encoder.Encode(ahmp.JN_T) != nil {
 		return false
 	}
-	if p.outbound.cbor_encoder.Encode(ahmp.RawJN{
+	return p.outbound.cbor_encoder.Encode(ahmp.RawJN{
 		SenderSessionID: local_session_id.String(),
 		Text:            path,
-	}) != nil {
-		return false
-	}
-	return true
+	}) == nil
 }
-func (p *AbyssPeer) TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {
-	fmt.Println("sending JOK")
+func (p *AbyssPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {
+	fmt.Print("sending JOK")
+	fmt.Println(ahmp.RawJOK{
+		SenderSessionID: local_session_id.String(),
+		RecverSessionID: peer_session_id.String(),
+		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSession) ahmp.SessionInfoText {
+			return ahmp.SessionInfoText{
+				AURL:      session.Peer.AURL().ToString(),
+				SessionID: session.PeerSessionID.String(),
+			}
+		}),
+		Text: world_url,
+	})
 	if p.outbound.cbor_encoder.Encode(ahmp.JOK_T) != nil {
 		return false
 	}
@@ -74,7 +86,7 @@ func (p *AbyssPeer) TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.
 	return true
 }
 func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool {
-	fmt.Println("sending JDN")
+	fmt.Print("sending JDN")
 	if p.outbound.cbor_encoder.Encode(ahmp.JDN_T) != nil {
 		return false
 	}
@@ -87,8 +99,8 @@ func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message stri
 	}
 	return true
 }
-func (p *AbyssPeer) TrySendJNI(peer_session_id uuid.UUID, local_session_id uuid.UUID, member_session abyss.ANDPeerSession) bool {
-	fmt.Println("sending JNI")
+func (p *AbyssPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session abyss.ANDPeerSession) bool {
+	fmt.Print("sending JNI")
 	if p.outbound.cbor_encoder.Encode(ahmp.JNI_T) != nil {
 		return false
 	}
@@ -104,8 +116,8 @@ func (p *AbyssPeer) TrySendJNI(peer_session_id uuid.UUID, local_session_id uuid.
 	}
 	return true
 }
-func (p *AbyssPeer) TrySendMEM(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool {
-	fmt.Println("sending MEM")
+func (p *AbyssPeer) TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
+	fmt.Print("sending MEM")
 	if p.outbound.cbor_encoder.Encode(ahmp.MEM_T) != nil {
 		return false
 	}
@@ -117,7 +129,7 @@ func (p *AbyssPeer) TrySendMEM(peer_session_id uuid.UUID, local_session_id uuid.
 	}
 	return true
 }
-func (p *AbyssPeer) TrySendSNB(peer_session_id uuid.UUID, local_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
+func (p *AbyssPeer) TrySendSNB(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
 	if p.outbound.cbor_encoder.Encode(ahmp.SNB_T) != nil {
 		return false
 	}
@@ -129,7 +141,7 @@ func (p *AbyssPeer) TrySendSNB(peer_session_id uuid.UUID, local_session_id uuid.
 	}
 	return true
 }
-func (p *AbyssPeer) TrySendCRR(peer_session_id uuid.UUID, local_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
+func (p *AbyssPeer) TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
 	if p.outbound.cbor_encoder.Encode(ahmp.CRR_T) != nil {
 		return false
 	}
@@ -141,7 +153,7 @@ func (p *AbyssPeer) TrySendCRR(peer_session_id uuid.UUID, local_session_id uuid.
 	}
 	return true
 }
-func (p *AbyssPeer) TrySendRST(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool {
+func (p *AbyssPeer) TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
 	if p.outbound.cbor_encoder.Encode(ahmp.RST_T) != nil {
 		return false
 	}
@@ -154,7 +166,7 @@ func (p *AbyssPeer) TrySendRST(peer_session_id uuid.UUID, local_session_id uuid.
 	return true
 }
 
-func (p *AbyssPeer) TrySendSOA(peer_session_id uuid.UUID, local_session_id uuid.UUID, objects []abyss.ObjectInfo) bool {
+func (p *AbyssPeer) TrySendSOA(local_session_id uuid.UUID, peer_session_id uuid.UUID, objects []abyss.ObjectInfo) bool {
 	if p.outbound.cbor_encoder.Encode(ahmp.SOA_T) != nil {
 		return false
 	}
@@ -166,7 +178,7 @@ func (p *AbyssPeer) TrySendSOA(peer_session_id uuid.UUID, local_session_id uuid.
 	}
 	return true
 }
-func (p *AbyssPeer) TrySendSOD(peer_session_id uuid.UUID, local_session_id uuid.UUID, objectIDs []uuid.UUID) bool {
+func (p *AbyssPeer) TrySendSOD(local_session_id uuid.UUID, peer_session_id uuid.UUID, objectIDs []uuid.UUID) bool {
 	if p.outbound.cbor_encoder.Encode(ahmp.SOD_T) != nil {
 		return false
 	}

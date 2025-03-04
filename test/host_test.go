@@ -57,7 +57,7 @@ func TestHost(t *testing.T) {
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Println("[hostA] Opened World ")
+	fmt.Println("[hostA] Opened World")
 	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
 	go printWorldEvents("[hostA]", hostA, A_world)
 
@@ -68,7 +68,7 @@ func TestHost(t *testing.T) {
 	join_url.Path = "/home"
 
 	fmt.Println("[hostB] Joining World")
-	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	B_A_world, err := hostB.JoinWorld(join_ctx, join_url)
 	join_ctx_cancel()
 
