@@ -42,6 +42,9 @@ func (a *AND) EventChannel() chan abyss.NeighborEvent {
 }
 
 func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	peer_hash := peer.IDHash()
 	//fmt.Println("peer connected: " + peer_hash)
 	if _, ok := a.peers[peer_hash]; ok {
@@ -121,6 +124,9 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 }
 
 func (a *AND) PeerClose(peer abyss.IANDPeer) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	peer_hash := peer.IDHash()
 
 	if _, ok := a.peers[peer_hash]; ok {
@@ -141,6 +147,9 @@ func (a *AND) PeerClose(peer abyss.IANDPeer) abyss.ANDERROR {
 }
 
 func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	if _, ok := a.join_targets[local_session_id]; ok {
 		return abyss.EINVAL
 	}
@@ -149,15 +158,18 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 	}
 
 	a.worlds[local_session_id] = NewWorld(local_session_id, world_url)
-	a.eventCh <- abyss.NeighborEvent{
-		Type:           abyss.ANDJoinSuccess,
-		LocalSessionID: local_session_id,
-		Text:           world_url,
-	}
+	// a.eventCh <- abyss.NeighborEvent{
+	// 	Type:           abyss.ANDJoinSuccess,
+	// 	LocalSessionID: local_session_id,
+	// 	Text:           world_url,
+	// }
 	return 0
 }
 
 func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	peer, ok := a.peers[abyss_url.Hash]
 	if !ok { //require connection
 		//check for redundant call
@@ -188,6 +200,9 @@ func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.
 
 // this does not guarantee join cancellation.
 func (a *AND) CancelJoin(local_session_id uuid.UUID) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	//check for connecting join
 	if _, ok := a.join_targets_connecting[local_session_id]; ok {
 		a.eventCh <- abyss.NeighborEvent{
@@ -225,6 +240,9 @@ func (a *AND) CancelJoin(local_session_id uuid.UUID) abyss.ANDERROR {
 }
 
 func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	world, ok := a.worlds[local_session_id]
 	if !ok {
 		return abyss.EINVAL
@@ -293,6 +311,9 @@ func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.ANDPe
 }
 
 func (a *AND) DeclineSession(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, code int, message string) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	world, ok := a.worlds[local_session_id]
 	if !ok {
 		return abyss.EINVAL
@@ -326,10 +347,16 @@ func (a *AND) DeclineSession(local_session_id uuid.UUID, peer_session abyss.ANDP
 }
 
 func (a *AND) ResetPeerSession(local_session_id uuid.UUID, peer abyss.IANDPeer, peer_session_id uuid.UUID) {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	a.resetOptDrop(peer, local_session_id, peer_session_id)
 }
 
 func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	world, ok := a.worlds[local_session_id]
 	if !ok {
 		return abyss.EINVAL
@@ -355,12 +382,18 @@ func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {
 }
 
 func (a *AND) TimerExpire(local_session_id uuid.UUID) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	//TODO: SNB
 	return 0
 }
 
 // session_uuid is always the sender's session id.
 func (a *AND) JN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	world, ok := a.worlds[local_session_id]
 	if !ok {
 		return abyss.EINVAL
@@ -391,6 +424,9 @@ func (a *AND) JN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) 
 	return 0
 }
 func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, world_url string, member_sessions []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	join_target, ok := a.join_targets[local_session_id]
 	if !ok {
 		a.resetOptDrop(peer_session.Peer, local_session_id, peer_session.PeerSessionID)
@@ -441,6 +477,9 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	return 0
 }
 func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, message string) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	join_target, ok := a.join_targets[local_session_id]
 	if !ok {
 		return abyss.EINVAL
@@ -459,6 +498,9 @@ func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, mes
 	return 0
 }
 func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_info abyss.ANDPeerSessionInfo) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	//member_hash string, member_aurl string, member_session_id uuid.UUID
 	world, ok := a.worlds[local_session_id]
 	if !ok {
@@ -502,6 +544,9 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	return 0
 }
 func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	peer_hash := peer_session.Peer.IDHash()
 
 	world, ok := a.worlds[local_session_id]
@@ -599,12 +644,21 @@ func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 
 // TODO
 func (a *AND) SNB(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_hashes []string) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	return 0
 }
 func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_hashes []string) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	return 0
 }
 func (a *AND) RST(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
 	return 0
 }
 

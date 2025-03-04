@@ -1,6 +1,8 @@
 package net_service
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 
 	"abyss_neighbor_discovery/ahmp"
@@ -39,6 +41,7 @@ func (p *AbyssPeer) AhmpCh() chan any {
 }
 
 func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
+	fmt.Println("sending JN")
 	if p.outbound.cbor_encoder.Encode(ahmp.JN_T) != nil {
 		return false
 	}
@@ -51,6 +54,7 @@ func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
 	return true
 }
 func (p *AbyssPeer) TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {
+	fmt.Println("sending JOK")
 	if p.outbound.cbor_encoder.Encode(ahmp.JOK_T) != nil {
 		return false
 	}
@@ -70,6 +74,7 @@ func (p *AbyssPeer) TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.
 	return true
 }
 func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool {
+	fmt.Println("sending JDN")
 	if p.outbound.cbor_encoder.Encode(ahmp.JDN_T) != nil {
 		return false
 	}
@@ -83,6 +88,7 @@ func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message stri
 	return true
 }
 func (p *AbyssPeer) TrySendJNI(peer_session_id uuid.UUID, local_session_id uuid.UUID, member_session abyss.ANDPeerSession) bool {
+	fmt.Println("sending JNI")
 	if p.outbound.cbor_encoder.Encode(ahmp.JNI_T) != nil {
 		return false
 	}
@@ -99,6 +105,7 @@ func (p *AbyssPeer) TrySendJNI(peer_session_id uuid.UUID, local_session_id uuid.
 	return true
 }
 func (p *AbyssPeer) TrySendMEM(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool {
+	fmt.Println("sending MEM")
 	if p.outbound.cbor_encoder.Encode(ahmp.MEM_T) != nil {
 		return false
 	}

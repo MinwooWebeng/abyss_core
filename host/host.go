@@ -210,29 +210,37 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 		case <-h.ctx.Done():
 			return
 		case message_any := <-ahmp_channel:
+			var and_result abyss.ANDERROR
+
 			switch message := message_any.(type) {
-			case ahmp.JN:
+			case *ahmp.JN:
 				local_session_id, ok := h.pathResolver.PathToSessionID(message.Text, peer.IDHash())
 				if !ok {
 					continue // TODO: respond with proper error code
 				}
-				h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
-			case ahmp.JOK:
-				h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Text, message.Neighbors)
-			case ahmp.JDN:
-				h.neighborDiscoveryAlgorithm.JDN(message.RecverSessionID, peer, message.Code, message.Text)
-			case ahmp.JNI:
-				h.neighborDiscoveryAlgorithm.JNI(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Neighbor)
-			case ahmp.MEM:
-				h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
-			case ahmp.SNB:
-				h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
-			case ahmp.CRR:
-				h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
-			case ahmp.RST:
-				h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+				and_result = h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+			case *ahmp.JOK:
+				and_result = h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Text, message.Neighbors)
+			case *ahmp.JDN:
+				and_result = h.neighborDiscoveryAlgorithm.JDN(message.RecverSessionID, peer, message.Code, message.Text)
+			case *ahmp.JNI:
+				and_result = h.neighborDiscoveryAlgorithm.JNI(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Neighbor)
+			case *ahmp.MEM:
+				and_result = h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+			case *ahmp.SNB:
+				and_result = h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
+			case *ahmp.CRR:
+				and_result = h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
+			case *ahmp.RST:
+				and_result = h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
 			default:
 				panic("unknown ahmp message type")
+			}
+
+			if and_result == abyss.EPANIC {
+				panic("AND panic!!!")
+			} else if and_result == abyss.EINVAL {
+				fmt.Println("AND: invalid arguments")
 			}
 		}
 	}
@@ -246,12 +254,15 @@ func (h *AbyssHost) eventLoop() {
 	for {
 		select {
 		case <-h.ctx.Done():
+			fmt.Println("host event loop done")
 			wg.Wait()
 			h.event_done <- true
 			return
 		case e := <-event_ch:
+			//fmt.Println("AND event raised")
 			switch e.Type {
 			case abyss.ANDSessionRequest:
+				fmt.Println("event ::: abyss.ANDSessionRequest")
 				h.worlds_mtx.Lock()
 				world := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -261,6 +272,7 @@ func (h *AbyssHost) eventLoop() {
 					PeerSessionID: e.PeerSessionID,
 				})
 			case abyss.ANDSessionReady:
+				fmt.Println("event ::: abyss.ANDSessionReady")
 				h.worlds_mtx.Lock()
 				world := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -270,12 +282,14 @@ func (h *AbyssHost) eventLoop() {
 					PeerSessionID: e.PeerSessionID,
 				})
 			case abyss.ANDSessionClose:
+				fmt.Println("event ::: abyss.ANDSessionClose")
 				h.worlds_mtx.Lock()
 				world := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
 
 				world.RaisePeerLeave(e.Peer.IDHash())
 			case abyss.ANDJoinSuccess, abyss.ANDJoinFail:
+				fmt.Println("event ::: abyss.ANDJoinResponse")
 				h.join_q_mtx.Lock()
 				join_res_ch := h.join_queue[e.LocalSessionID]
 				delete(h.join_queue, e.LocalSessionID)
@@ -283,6 +297,7 @@ func (h *AbyssHost) eventLoop() {
 
 				join_res_ch <- e
 			case abyss.ANDConnectRequest:
+				fmt.Println("event ::: abyss.ANDConnectRequest")
 				h.networkService.ConnectAbyssAsync(h.ctx, e.Object.(*aurl.AURL))
 			case abyss.ANDTimerRequest:
 				target_local_session := e.LocalSessionID
@@ -297,7 +312,10 @@ func (h *AbyssHost) eventLoop() {
 					}
 				}()
 			case abyss.ANDNeighborEventDebug:
+				fmt.Println("event ::: abyss.ANDNeighborEventDebug")
 				fmt.Println(time.Now().Format("00:00:00.000") + " " + e.Text)
+			default:
+				panic("unknown AND event")
 			}
 		}
 	}

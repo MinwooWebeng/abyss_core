@@ -2,6 +2,8 @@ package net_service
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/quic-go/quic-go"
@@ -48,9 +50,11 @@ func (h *AbyssInbound) listenAhmp() {
 	for {
 		var ahmp_type int
 		h.cbor_decoder.Decode(&ahmp_type)
+		<-time.After(500 * time.Millisecond)
 
 		switch ahmp_type {
 		case ahmp.JN_T:
+			fmt.Println("receiving JN")
 			var raw_msg ahmp.RawJN
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -59,6 +63,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.JOK_T:
+			fmt.Println("receiving JOK")
 			var raw_msg ahmp.RawJOK
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -67,6 +72,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.JDN_T:
+			fmt.Println("receiving JDN")
 			var raw_msg ahmp.RawJDN
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -75,6 +81,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.JNI_T:
+			fmt.Println("receiving JNI")
 			var raw_msg ahmp.RawJNI
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -83,6 +90,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.MEM_T:
+			fmt.Println("receiving MEM")
 			var raw_msg ahmp.RawMEM
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -91,6 +99,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.SNB_T:
+			fmt.Println("receiving SNB")
 			var raw_msg ahmp.RawSNB
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -99,6 +108,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.CRR_T:
+			fmt.Println("receiving CRR")
 			var raw_msg ahmp.RawCRR
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -107,6 +117,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.RST_T:
+			fmt.Println("receiving RST")
 			var raw_msg ahmp.RawRST
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -115,6 +126,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.SOA_T:
+			fmt.Println("receiving SOA")
 			var raw_msg ahmp.RawSOA
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
@@ -123,6 +135,7 @@ func (h *AbyssInbound) listenAhmp() {
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.SOD_T:
+			fmt.Println("receiving SOD")
 			var raw_msg ahmp.RawSOD
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()

@@ -18,7 +18,7 @@ func printWorldEvents(prefix string, host abyss.IAbyssHost, world abyss.IAbyssWo
 
 	for {
 		select {
-		case <-time.After(10 * time.Second):
+		case <-time.After(30 * time.Second):
 			host.LeaveWorld(world)
 			fmt.Println(prefix + " Left World")
 			return
@@ -57,7 +57,7 @@ func TestHost(t *testing.T) {
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Println("[hostA] Opened World")
+	fmt.Println("[hostA] Opened World ")
 	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
 	go printWorldEvents("[hostA]", hostA, A_world)
 
