@@ -183,6 +183,7 @@ func (h *BetaNetService) constructingAbyssPeers(ctx context.Context) {
 				abyssInParts[inbound.identity] = inbound
 			}
 		case outbound := <-h.abyssOutBound:
+			//TODO: handle connection failure.
 			if inbound, ok := abyssInParts[outbound.identity.IDHash()]; ok {
 				h.abyssPeerCH <- NewAbyssPeer(h, inbound, outbound)
 			} else {
@@ -217,9 +218,9 @@ func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) 
 func (h *BetaNetService) _connectAbyss(ctx context.Context, addresses []*net.UDPAddr, identity string) {
 	connection, err := h.quicTransport.Dial(ctx, addresses[0], h.tlsConf, h.quicConf)
 	if err != nil {
-		h.PrepareAbyssOutbound(ctx, nil, identity)
+		h.PrepareAbyssOutbound(ctx, nil, identity, addresses)
 	}
-	h.PrepareAbyssOutbound(ctx, connection, identity)
+	h.PrepareAbyssOutbound(ctx, connection, identity, addresses)
 }
 
 func (h *BetaNetService) GetAbyssPeerChannel() chan abyss.IANDPeer {

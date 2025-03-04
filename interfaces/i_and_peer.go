@@ -18,16 +18,17 @@ type ANDPeerSessionInfo struct {
 
 type IANDPeer interface {
 	IRemoteIdentity
+	AURL() *aurl.AURL
 
-	AhmpCh() chan IAhmpMessage
+	AhmpCh() chan any
 
 	TrySendJN(local_session_id uuid.UUID, path string) bool
 	TrySendJOK(peer_session_id uuid.UUID, local_session_id uuid.UUID, world_url string, member_sessions []ANDPeerSession) bool
 	TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool
-	TrySendJNI(peer_session_id uuid.UUID, member_session ANDPeerSession) bool
+	TrySendJNI(peer_session_id uuid.UUID, local_session_id uuid.UUID, member_session ANDPeerSession) bool
 	TrySendMEM(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool
-	TrySendSNB(peer_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
-	TrySendCRR(peer_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
+	TrySendSNB(peer_session_id uuid.UUID, local_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
+	TrySendCRR(peer_session_id uuid.UUID, local_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
 	TrySendRST(peer_session_id uuid.UUID, local_session_id uuid.UUID) bool
 
 	TrySendSOA(peer_session_id uuid.UUID, local_session_id uuid.UUID, objects []ObjectInfo) bool

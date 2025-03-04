@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"abyss_neighbor_discovery/ahmp"
 	"abyss_neighbor_discovery/aurl"
 	abyss "abyss_neighbor_discovery/interfaces"
 	"abyss_neighbor_discovery/tools/functional"
@@ -208,29 +209,30 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 		select {
 		case <-h.ctx.Done():
 			return
-		case message := <-ahmp_channel:
-			switch t := message.Type(); t {
-			case abyss.JN:
-				local_session_id, ok := h.pathResolver.PathToSessionID(message.Text(), peer.IDHash())
+		case message_any := <-ahmp_channel:
+			switch message := message_any.(type) {
+			case ahmp.JN:
+				local_session_id, ok := h.pathResolver.PathToSessionID(message.Text, peer.IDHash())
 				if !ok {
 					continue // TODO: respond with proper error code
 				}
-				h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
-			case abyss.JOK:
-				h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Text(), message.Neighbors())
-			case abyss.JDN:
-				h.neighborDiscoveryAlgorithm.JDN(message.RecverSessionID(), message.Sender(), message.Code(), message.Text())
-			case abyss.JNI:
-				joiner := message.Neighbors()[0]
-				h.neighborDiscoveryAlgorithm.JNI(message.SenderSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, joiner)
-			case abyss.MEM:
-				h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
-			case abyss.SNB:
-				h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Texts())
-			case abyss.CRR:
-				h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()}, message.Texts())
-			case abyss.RST:
-				h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID(), abyss.ANDPeerSession{Peer: message.Sender(), PeerSessionID: message.SenderSessionID()})
+				h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+			case ahmp.JOK:
+				h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Text, message.Neighbors)
+			case ahmp.JDN:
+				h.neighborDiscoveryAlgorithm.JDN(message.RecverSessionID, peer, message.Code, message.Text)
+			case ahmp.JNI:
+				h.neighborDiscoveryAlgorithm.JNI(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Neighbor)
+			case ahmp.MEM:
+				h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+			case ahmp.SNB:
+				h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
+			case ahmp.CRR:
+				h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
+			case ahmp.RST:
+				h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+			default:
+				panic("unknown ahmp message type")
 			}
 		}
 	}
