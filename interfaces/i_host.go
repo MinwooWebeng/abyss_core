@@ -42,6 +42,7 @@ type EPeerObjectDelete struct {
 type EWorldPeerLeave struct { //now, the peer must be closed as soon as possible.
 	PeerHash string
 }
+type EWorldTerminate struct{}
 
 type IAbyssWorld interface {
 	SessionID() uuid.UUID
@@ -56,7 +57,8 @@ type IAbyssHost interface {
 	//Abyss
 	OpenWorld(web_url string) (IAbyssWorld, error)
 	JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (IAbyssWorld, error)
-	LeaveWorld(world IAbyssWorld)
+	LeaveWorld(world IAbyssWorld) //this does not wait for world-related resource cleanup.
+	// Each world should wait for its world termination event.
 
 	//Abyst
 	GetAbystClientConnection(ctx context.Context, peer_hash string) (*http3.ClientConn, error)

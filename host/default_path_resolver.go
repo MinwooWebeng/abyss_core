@@ -19,15 +19,14 @@ func NewDefaultPathResolver() *DefaultPathResolver {
 }
 
 func (r *DefaultPathResolver) SetMapping(path string, dest uuid.UUID) {
-	if dest == uuid.Nil {
-		r.mtx.Lock()
-		delete(r.pathMap, path)
-		r.mtx.Unlock()
-		return
-	}
-
 	r.mtx.Lock()
 	r.pathMap[path] = dest
+	r.mtx.Unlock()
+}
+
+func (r *DefaultPathResolver) DeleteMapping(path string) {
+	r.mtx.Lock()
+	delete(r.pathMap, path)
 	r.mtx.Unlock()
 }
 

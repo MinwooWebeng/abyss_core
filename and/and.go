@@ -158,11 +158,11 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 	}
 
 	a.worlds[local_session_id] = NewWorld(local_session_id, world_url)
-	// a.eventCh <- abyss.NeighborEvent{
-	// 	Type:           abyss.ANDJoinSuccess,
-	// 	LocalSessionID: local_session_id,
-	// 	Text:           world_url,
-	// }
+	a.eventCh <- abyss.NeighborEvent{
+		Type:           abyss.ANDJoinSuccess,
+		LocalSessionID: local_session_id,
+		Text:           world_url,
+	}
 	return 0
 }
 
@@ -430,7 +430,6 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	join_target, ok := a.join_targets[local_session_id]
 	if !ok {
 		a.resetOptDrop(peer_session.Peer, local_session_id, peer_session.PeerSessionID)
-		//fmt.Println("K")
 		return abyss.EINVAL
 	}
 	if join_target.peer != peer_session.Peer {

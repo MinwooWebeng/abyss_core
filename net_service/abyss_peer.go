@@ -41,11 +41,13 @@ func (p *AbyssPeer) AhmpCh() chan any {
 }
 
 func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
-	fmt.Print("sending JN")
-	fmt.Println(ahmp.RawJN{
+	fmt.Println(struct {
+		t string
+		a any
+	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash() + " sending JN", a: ahmp.RawJN{
 		SenderSessionID: local_session_id.String(),
 		Text:            path,
-	})
+	}})
 	if p.outbound.cbor_encoder.Encode(ahmp.JN_T) != nil {
 		return false
 	}
@@ -55,8 +57,10 @@ func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
 	}) == nil
 }
 func (p *AbyssPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {
-	fmt.Print("sending JOK")
-	fmt.Println(ahmp.RawJOK{
+	fmt.Println(struct {
+		t string
+		a any
+	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash() + " sending JOK", a: ahmp.RawJOK{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
 		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSession) ahmp.SessionInfoText {
@@ -66,7 +70,7 @@ func (p *AbyssPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.
 			}
 		}),
 		Text: world_url,
-	})
+	}})
 	if p.outbound.cbor_encoder.Encode(ahmp.JOK_T) != nil {
 		return false
 	}
@@ -86,7 +90,14 @@ func (p *AbyssPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.
 	return true
 }
 func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool {
-	fmt.Print("sending JDN")
+	fmt.Println(struct {
+		t string
+		a any
+	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash() + " sending JDN", a: ahmp.RawJDN{
+		RecverSessionID: peer_session_id.String(),
+		Text:            message,
+		Code:            code,
+	}})
 	if p.outbound.cbor_encoder.Encode(ahmp.JDN_T) != nil {
 		return false
 	}
@@ -100,7 +111,17 @@ func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message stri
 	return true
 }
 func (p *AbyssPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session abyss.ANDPeerSession) bool {
-	fmt.Print("sending JNI")
+	fmt.Println(struct {
+		t string
+		a any
+	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash(), a: ahmp.RawJNI{
+		SenderSessionID: local_session_id.String(),
+		RecverSessionID: peer_session_id.String(),
+		Neighbor: ahmp.SessionInfoText{
+			AURL:      member_session.Peer.AURL().ToString(),
+			SessionID: member_session.PeerSessionID.String(),
+		},
+	}})
 	if p.outbound.cbor_encoder.Encode(ahmp.JNI_T) != nil {
 		return false
 	}
@@ -117,7 +138,13 @@ func (p *AbyssPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.
 	return true
 }
 func (p *AbyssPeer) TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
-	fmt.Print("sending MEM")
+	fmt.Println(struct {
+		t string
+		a any
+	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash() + " sending MEM", a: ahmp.RawMEM{
+		SenderSessionID: local_session_id.String(),
+		RecverSessionID: peer_session_id.String(),
+	}})
 	if p.outbound.cbor_encoder.Encode(ahmp.MEM_T) != nil {
 		return false
 	}

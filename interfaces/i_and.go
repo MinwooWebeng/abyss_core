@@ -14,6 +14,7 @@ const (
 	ANDSessionClose
 	ANDJoinSuccess
 	ANDJoinFail
+	ANDWorldLeave //called after WorldLeave
 	ANDConnectRequest
 	ANDTimerRequest
 	ANDNeighborEventDebug

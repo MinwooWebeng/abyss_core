@@ -61,3 +61,6 @@ func (w *World) RaisePeerLeave(peer_hash string) {
 		PeerHash: peer_hash,
 	}
 }
+func (w *World) RaiseWorldTerminate() {
+	w.eventChannel <- abyss.EWorldTerminate{}
+}
