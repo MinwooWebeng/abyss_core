@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"sync"
 	"time"
 
@@ -248,7 +249,7 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 			if and_result == abyss.EPANIC {
 				panic("AND panic!!!")
 			} else if and_result == abyss.EINVAL {
-				fmt.Println("AND: invalid arguments")
+				fmt.Println("AND: invalid arguments - " + reflect.TypeOf(message_any).String())
 			}
 		}
 	}

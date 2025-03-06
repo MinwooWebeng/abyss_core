@@ -114,7 +114,7 @@ func (p *AbyssPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.
 	fmt.Println(struct {
 		t string
 		a any
-	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash(), a: ahmp.RawJNI{
+	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash() + " sending JNI", a: ahmp.RawJNI{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
 		Neighbor: ahmp.SessionInfoText{
@@ -181,6 +181,13 @@ func (p *AbyssPeer) TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.
 	return true
 }
 func (p *AbyssPeer) TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
+	fmt.Println(struct {
+		t string
+		a any
+	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash() + " sending RST", a: ahmp.RawRST{
+		SenderSessionID: local_session_id.String(),
+		RecverSessionID: peer_session_id.String(),
+	}})
 	if p.outbound.cbor_encoder.Encode(ahmp.RST_T) != nil {
 		return false
 	}

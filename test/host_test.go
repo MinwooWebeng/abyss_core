@@ -188,7 +188,7 @@ func (a *AutonomousHost) Run(ctx context.Context, done_ch chan bool) {
 				if err != nil {
 					panic(err.Error())
 				}
-				fmt.Println(a.log_prefix + " Opened world: " + world.SessionID().String())
+				fmt.Println(a.log_prefix + " Opened world: " + world.SessionID().String() + "/" + world_name)
 				a.abyss_pathMap.SetMapping("/"+world_name, world.SessionID())
 
 				raw_aurl := a.abyss_host.GetLocalAbyssURL()
