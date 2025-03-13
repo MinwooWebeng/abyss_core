@@ -1,7 +1,9 @@
 package net_service
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/quic-go/quic-go"
@@ -19,6 +21,15 @@ type AbyssInbound struct {
 }
 
 func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection quic.Connection) {
+	//get self-signed TLS certificate that the peer presented.
+	tls_info := connection.ConnectionState().TLS
+	client_tls_cert := tls_info.PeerCertificates[0] //*x509.Certificate
+	if client_tls_cert.CheckSignatureFrom(client_tls_cert) != nil {
+		//abort connection.
+		connection.CloseWithError(0, "peer certificate not self-signed")
+		return
+	}
+
 	ahmp_stream, err := connection.AcceptStream(ctx)
 	if err != nil {
 		connection.CloseWithError(0, err.Error())
@@ -27,14 +38,72 @@ func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection qui
 	ahmp_cbor_enc := cbor.NewEncoder(ahmp_stream)
 	ahmp_cbor_dec := cbor.NewDecoder(ahmp_stream)
 
-	ahmp_cbor_enc.Encode(ahmp.DummyAuth{Name: h.localIdentity.IDHash()})
-
-	var dummy_auth ahmp.DummyAuth
-	if err = ahmp_cbor_dec.Decode(&dummy_auth); err != nil {
+	//receive client-side self-authentication payload
+	var client_self_auth_raw []byte
+	if ahmp_cbor_dec.Decode(client_self_auth_raw) != nil {
+		connection.CloseWithError(0, "malformed self-authentication payload")
+		return
+	}
+	//decrypt the payload with local private key - verify if this payload is for me.
+	client_self_auth_decrypted, ok := h.localIdentity.Decrypt(client_self_auth_raw)
+	if !ok {
+		connection.CloseWithError(0, "not me!")
+		return
+	}
+	//parse client hash, self-signed root cert, tls-verify cert
+	var client_hash string
+	rest, err := cbor.UnmarshalFirst(client_self_auth_decrypted, &client_hash)
+	if err != nil {
+		connection.CloseWithError(0, "malformed self-authentication payload")
+		return
+	}
+	var client_self_signed_cert_raw []byte
+	rest, err = cbor.UnmarshalFirst(rest, client_self_signed_cert_raw)
+	if err != nil {
+		connection.CloseWithError(0, "malformed self-authentication payload")
+		return
+	}
+	client_self_signed_cert, err := x509.ParseCertificate(client_self_signed_cert_raw)
+	if err != nil {
+		connection.CloseWithError(0, "malformed self-authentication payload")
+		return
+	}
+	var client_tls_verify_cert_raw []byte
+	if cbor.Unmarshal(rest, client_tls_verify_cert_raw) != nil {
+		connection.CloseWithError(0, "malformed self-authentication payload")
+		return
+	}
+	client_tls_verify_cert, err := x509.ParseCertificate(client_tls_verify_cert_raw)
+	if err != nil {
+		connection.CloseWithError(0, "malformed self-authentication payload")
 		return
 	}
 
-	result := AbyssInbound{connection, dummy_auth.Name, ahmp_cbor_dec, make(chan any, 8)}
+	//verify tls public key
+	if client_tls_cert.Subject.CommonName != client_tls_cert.Issuer.CommonName ||
+		client_tls_cert.Issuer.CommonName != client_tls_verify_cert.Subject.CommonName ||
+		client_tls_verify_cert.Subject.CommonName != client_tls_verify_cert.Issuer.CommonName ||
+		client_tls_verify_cert.Issuer.CommonName != client_self_signed_cert.Subject.CommonName ||
+		client_self_signed_cert.Subject.CommonName != client_self_signed_cert.Issuer.CommonName {
+		connection.CloseWithError(0, "issuer mismatch")
+		return
+	}
+	if !bytes.Equal(client_tls_verify_cert.RawSubjectPublicKeyInfo, client_tls_cert.RawSubjectPublicKeyInfo) {
+		connection.CloseWithError(0, "invalid TLS session")
+		return
+	}
+	if client_tls_cert.CheckSignatureFrom(client_tls_verify_cert) != nil {
+		connection.CloseWithError(0, "TLS session verification failed (1)")
+		return
+	}
+	if client_tls_verify_cert.CheckSignatureFrom(client_self_signed_cert) != nil {
+		connection.CloseWithError(0, "TLS session verification failed (2)")
+		return
+	}
+
+	//authenticate ourself
+
+	result := AbyssInbound{connection, client_self_signed_cert.Issuer.CommonName, ahmp_cbor_dec, make(chan any, 8)}
 	go result.listenAhmp()
 	h.abyssInBound <- result
 }

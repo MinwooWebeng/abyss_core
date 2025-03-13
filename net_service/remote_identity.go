@@ -11,6 +11,6 @@ func NewBetaRemoteIdentity(hash string) *BetaRemoteIdentity {
 func (i *BetaRemoteIdentity) IDHash() string {
 	return i.hash
 }
-func (i *BetaRemoteIdentity) ValidateSignature(payload []byte, hash []byte) bool {
+func (i *BetaRemoteIdentity) ValidateSignature(payload []byte, signature []byte) bool {
 	return true
 }

@@ -17,14 +17,20 @@ import (
 	"github.com/google/uuid"
 )
 
-func printWorldEvents(prefix string, host abyss.IAbyssHost, world abyss.IAbyssWorld, dwell_time_ms int, joiner_ch chan string, fin_ch chan bool) {
+func _time_passed(time_begin time.Time) string {
+	return strconv.FormatFloat(float64(time.Since(time_begin).Milliseconds())/1000.0, 'f', 3, 32)
+}
+
+func printWorldEvents(time_begin time.Time, prefix string, host abyss.IAbyssHost, world abyss.IAbyssWorld, dwell_time_ms int, joiner_ch chan string, fin_ch chan bool) {
 	ev_ch := world.GetEventChannel()
 
+	members := make(map[string]bool)
+	timeout := time.After(time.Duration(dwell_time_ms) * time.Millisecond)
 	for {
 		select {
-		case <-time.After(time.Duration(dwell_time_ms) * time.Millisecond):
-			host.LeaveWorld(world)
-			fmt.Println(prefix + " Left World: " + world.SessionID().String())
+		case <-timeout:
+			host.LeaveWorld(world) //this immediately returns
+			fmt.Println(_time_passed(time_begin) + prefix + " Left World: " + world.SessionID().String())
 			fin_ch <- true
 			return
 		case joiner_aurl := <-joiner_ch:
@@ -36,19 +42,40 @@ func printWorldEvents(prefix string, host abyss.IAbyssHost, world abyss.IAbyssWo
 		case event_unknown := <-ev_ch:
 			switch event := event_unknown.(type) {
 			case abyss.EWorldPeerRequest:
-				fmt.Println(prefix + " accepting " + event.PeerHash)
+				fmt.Println(_time_passed(time_begin) + prefix + " accepting " + event.PeerHash)
+
+				if _, ok := members[event.PeerHash]; ok {
+					panic("!!! duplicate peer session request !!!")
+				}
+				members[event.PeerHash] = false // member not ready
+
 				event.Accept()
 			case abyss.EWorldPeerReady:
-				fmt.Println(prefix + " peer ready: " + event.Peer.Hash())
+				fmt.Println(_time_passed(time_begin) + prefix + " peer ready: " + event.Peer.Hash())
+
+				is_ready, ok := members[event.Peer.Hash()]
+				if !ok {
+					panic("!!! non-member peer ready !!!")
+				}
+				if is_ready {
+					panic("!!! duplicate peer ready !!!")
+				}
+				members[event.Peer.Hash()] = true // ready
+
 				//event.Peer.AppendObjects([]abyss.ObjectInfo{abyss.ObjectInfo{ID: uuid.New(), Address: "https://abyssal.com/cat.obj"}})
 			case abyss.EPeerObjectAppend:
-				fmt.Println(prefix + " " + event.PeerHash + " appended" + functional.Accum_all(event.Objects, "", func(obj abyss.ObjectInfo, accum string) string {
+				fmt.Println(_time_passed(time_begin) + prefix + " " + event.PeerHash + " appended" + functional.Accum_all(event.Objects, "", func(obj abyss.ObjectInfo, accum string) string {
 					return accum + " " + obj.ID.String() + "|" + obj.Address
 				}))
 			case abyss.EPeerObjectDelete:
-				fmt.Println(prefix + " " + event.PeerHash + " deleted" + functional.Accum_all(event.ObjectIDs, "", func(obj uuid.UUID, accum string) string { return accum + " " + obj.String() }))
+				fmt.Println(_time_passed(time_begin) + prefix + " " + event.PeerHash + " deleted" + functional.Accum_all(event.ObjectIDs, "", func(obj uuid.UUID, accum string) string { return accum + " " + obj.String() }))
 			case abyss.EWorldPeerLeave:
-				fmt.Println(prefix + " peer leave: " + event.PeerHash)
+				fmt.Println(_time_passed(time_begin) + prefix + " peer leave: " + event.PeerHash)
+
+				if _, ok := members[event.PeerHash]; !ok {
+					panic("!!! non-member peer leave !!!")
+				}
+				delete(members, event.PeerHash)
 			default:
 				panic("unknown world event")
 			}
@@ -57,6 +84,7 @@ func printWorldEvents(prefix string, host abyss.IAbyssHost, world abyss.IAbyssWo
 }
 
 func TestHost(t *testing.T) {
+	time_begin := time.Now()
 	hostA, hostA_pathMap := abyss_host.NewBetaAbyssHost("hostA")
 	hostB, _ := abyss_host.NewBetaAbyssHost("hostB")
 
@@ -70,8 +98,8 @@ func TestHost(t *testing.T) {
 	}
 	fmt.Println("[hostA] Opened World: " + A_world.SessionID().String())
 	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
-	A_world_fin := make(chan bool)
-	go printWorldEvents("[hostA]", hostA, A_world, 30000, make(chan string), A_world_fin)
+	A_world_fin := make(chan bool, 1)
+	go printWorldEvents(time_begin, "[hostA]", hostA, A_world, 30000, make(chan string, 1), A_world_fin)
 
 	<-time.After(time.Second)
 	hostA.OpenOutboundConnection(hostB.GetLocalAbyssURL())
@@ -80,7 +108,7 @@ func TestHost(t *testing.T) {
 	join_url.Path = "/home"
 
 	fmt.Println("[hostB] Joining World")
-	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	B_A_world, err := hostB.JoinWorld(join_ctx, join_url)
 	join_ctx_cancel()
 
@@ -90,8 +118,8 @@ func TestHost(t *testing.T) {
 	}
 	fmt.Println("[hostB] Joined World: " + B_A_world.SessionID().String())
 
-	B_A_world_fin := make(chan bool)
-	go printWorldEvents("[hostB]", hostB, B_A_world, 30000, make(chan string), B_A_world_fin)
+	B_A_world_fin := make(chan bool, 1)
+	go printWorldEvents(time_begin, "[hostB]", hostB, B_A_world, 30000, make(chan string, 1), B_A_world_fin)
 
 	<-A_world_fin
 	<-B_A_world_fin
@@ -172,7 +200,7 @@ type AutonomousHost struct {
 	log_prefix          string
 }
 
-func (a *AutonomousHost) Run(ctx context.Context, done_ch chan bool) {
+func (a *AutonomousHost) Run(ctx context.Context, time_begin time.Time, done_ch chan bool) {
 	defer func() {
 		done_ch <- true
 	}()
@@ -182,27 +210,32 @@ func (a *AutonomousHost) Run(ctx context.Context, done_ch chan bool) {
 		case <-ctx.Done():
 			return
 		default:
+			fmt.Println(_time_passed(time_begin) + a.log_prefix + "next round")
 			if RandomBoolean() {
+				fmt.Println(_time_passed(time_begin) + a.log_prefix + "A) open")
 				world_name := RandomString()
 				world, err := a.abyss_host.OpenWorld("https://" + world_name + ".com")
 				if err != nil {
 					panic(err.Error())
 				}
-				fmt.Println(a.log_prefix + " Opened world: " + world.SessionID().String() + "/" + world_name)
+				dwell_time := rand.Intn(10000)
+				fmt.Println(_time_passed(time_begin) + a.log_prefix + " Opened world: " + world.SessionID().String() + "/" + world_name + " -(" + strconv.Itoa(dwell_time) + "ms)")
 				a.abyss_pathMap.SetMapping("/"+world_name, world.SessionID())
 
 				raw_aurl := a.abyss_host.GetLocalAbyssURL()
 				raw_aurl.Path = "/" + world_name
-				joiner_ch := make(chan string)
+				joiner_ch := make(chan string, 16)
 				a.global_join_targets.Append(a.log_prefix+world_name, raw_aurl.ToString(), joiner_ch)
 
-				printWorldEvents(a.log_prefix, a.abyss_host, world, rand.Intn(10000), joiner_ch, make(chan bool, 1))
+				printWorldEvents(time_begin, a.log_prefix, a.abyss_host, world, dwell_time, joiner_ch, make(chan bool, 1))
 
 				a.abyss_pathMap.DeleteMapping("/" + world_name)
 				a.global_join_targets.Delete(a.log_prefix + world_name)
 			} else {
+				fmt.Println(_time_passed(time_begin) + a.log_prefix + "B) join")
 				join_target_string, ok := a.global_join_targets.RequestRandom(a.abyss_host.GetLocalAbyssURL().ToString())
 				if !ok {
+					fmt.Println(a.log_prefix + "no join target")
 					continue
 				}
 				join_target, err := aurl.ParseAURL(join_target_string)
@@ -210,7 +243,7 @@ func (a *AutonomousHost) Run(ctx context.Context, done_ch chan bool) {
 					panic(err.Error())
 				}
 
-				fmt.Println(a.log_prefix + " Joining world: " + join_target.ToString())
+				fmt.Println(_time_passed(time_begin) + a.log_prefix + " Joining world: " + join_target.ToString())
 				join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				world, err := a.abyss_host.JoinWorld(join_ctx, join_target)
 				if err != nil {
@@ -220,21 +253,21 @@ func (a *AutonomousHost) Run(ctx context.Context, done_ch chan bool) {
 				}
 				join_ctx_cancel()
 
-				fmt.Println(a.log_prefix + " Joined world: " + world.SessionID().String())
+				dwell_time := rand.Intn(10000)
+				fmt.Println(_time_passed(time_begin) + a.log_prefix + " Joined world: " + world.SessionID().String() + " -(" + strconv.Itoa(dwell_time) + "ms)")
 				world_name := RandomString()
 				a.abyss_pathMap.SetMapping("/"+world_name, world.SessionID())
 
 				raw_aurl := a.abyss_host.GetLocalAbyssURL()
 				raw_aurl.Path = "/" + world_name
-				joiner_ch := make(chan string)
+				joiner_ch := make(chan string, 16)
 				a.global_join_targets.Append(a.log_prefix+world_name, raw_aurl.ToString(), joiner_ch)
 
-				printWorldEvents(a.log_prefix, a.abyss_host, world, rand.Intn(30000), joiner_ch, make(chan bool, 1))
+				printWorldEvents(time_begin, a.log_prefix, a.abyss_host, world, dwell_time, joiner_ch, make(chan bool, 1))
 
 				a.abyss_pathMap.DeleteMapping("/" + world_name)
 				a.global_join_targets.Delete(a.log_prefix + world_name)
 			}
-			fmt.Println(a.log_prefix + "next round")
 		}
 	}
 }
@@ -244,6 +277,7 @@ func TestMoreHosts(t *testing.T) {
 
 	global_world_reg := NewGlobalWorldRegistry()
 
+	time_begin := time.Now()
 	ctx, ctx_cancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 	hosts := make([]*AutonomousHost, N_hosts)
@@ -257,11 +291,10 @@ func TestMoreHosts(t *testing.T) {
 			global_join_targets: global_world_reg,
 			abyss_host:          host,
 			abyss_pathMap:       host_pathMap,
-			log_prefix:          "[" + host_name + "] ",
+			log_prefix:          " [" + host_name + "] ",
 		}
-		go hosts[i].Run(ctx, done_ch)
+		go hosts[i].Run(ctx, time_begin, done_ch)
 	}
-
 	for range N_hosts {
 		<-done_ch
 	}

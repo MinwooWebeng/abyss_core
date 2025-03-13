@@ -1,6 +1,7 @@
 package and
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/google/uuid"
@@ -80,6 +81,7 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 	}
 
 	for lssid, join_aurl := range a.join_targets_connecting {
+		delete(a.join_targets_connecting, lssid)
 		if join_aurl.Hash == peer_hash {
 			a.join_targets[lssid] = NewJoinTarget(peer, join_aurl.Path)
 			if !peer.TrySendJN(lssid, join_aurl.Path) {
@@ -427,6 +429,7 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
+	//check and clear join target
 	join_target, ok := a.join_targets[local_session_id]
 	if !ok {
 		a.resetOptDrop(peer_session.Peer, local_session_id, peer_session.PeerSessionID)
@@ -436,10 +439,10 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 		a.resetOptDrop(peer_session.Peer, local_session_id, peer_session.PeerSessionID)
 		return abyss.EINVAL
 	}
-
-	world := NewWorld(local_session_id, world_url)
-
 	delete(a.join_targets, local_session_id)
+
+	//create world and add
+	world := NewWorld(local_session_id, world_url)
 	a.worlds[local_session_id] = world
 	a.eventCh <- abyss.NeighborEvent{
 		Type:           abyss.ANDJoinSuccess,
@@ -447,6 +450,7 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 		Text:           world_url,
 	}
 
+	//append join target as member
 	world.pre_members[peer_session.Peer.IDHash()] = PreMemSession{state: PRE_MEM_RECVED, ANDPeerSession: peer_session}
 	a.eventCh <- abyss.NeighborEvent{
 		Type:           abyss.ANDSessionRequest,
@@ -454,6 +458,7 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 		ANDPeerSession: peer_session,
 	}
 
+	//handle connected, MEM received-pre_member
 	for pre_mem_hash, pre_mem_session := range join_target.pre_members {
 		world.pre_members[pre_mem_hash] = PreMemSession{state: PRE_MEM_RECVED, ANDPeerSession: pre_mem_session}
 		a.eventCh <- abyss.NeighborEvent{
@@ -463,14 +468,30 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 		}
 	}
 
+	//handle non-connected/MEM not received members
 	for _, member_session := range member_sessions {
 		if _, ok := world.pre_members[member_session.AURL.Hash]; ok {
 			continue
 		}
-		world.pre_conn_members[member_session.AURL.Hash] = member_session.SessionID
-		a.eventCh <- abyss.NeighborEvent{
-			Type:   abyss.ANDConnectRequest,
-			Object: member_session.AURL,
+		if peer, ok := a.peers[member_session.AURL.Hash]; ok {
+			//connected, MEM not received
+			peer_session := abyss.ANDPeerSession{Peer: peer, PeerSessionID: member_session.SessionID}
+			world.pre_members[member_session.AURL.Hash] = PreMemSession{
+				state:          PRE_MEM_CONNECTED,
+				ANDPeerSession: peer_session,
+			}
+			a.eventCh <- abyss.NeighborEvent{
+				Type:           abyss.ANDSessionRequest,
+				LocalSessionID: local_session_id,
+				ANDPeerSession: peer_session,
+			}
+		} else {
+			//non-connected
+			world.pre_conn_members[member_session.AURL.Hash] = member_session.SessionID
+			a.eventCh <- abyss.NeighborEvent{
+				Type:   abyss.ANDConnectRequest,
+				Object: member_session.AURL,
+			}
 		}
 	}
 
@@ -659,6 +680,43 @@ func (a *AND) RST(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
+	if peer_session.PeerSessionID == uuid.Nil { //reset all for target local session, peer session wildcard
+		if world, ok := a.worlds[local_session_id]; ok {
+			a.dropWorldMember(world, peer_session.Peer.IDHash())
+			delete(world.pre_members, peer_session.Peer.IDHash())
+		} else if _, ok := a.join_targets[local_session_id]; ok {
+			delete(a.join_targets, local_session_id)
+			a.eventCh <- abyss.NeighborEvent{
+				Type:           abyss.ANDJoinFail,
+				LocalSessionID: local_session_id,
+				Text:           JNM_RESET,
+				Value:          JNC_RESET,
+			}
+		}
+		return 0
+	}
+
+	//peer session targeted reset
+	if world, ok := a.worlds[local_session_id]; ok {
+		if member, ok := world.members[peer_session.Peer.IDHash()]; ok {
+			if member.PeerSessionID == peer_session.PeerSessionID {
+				a.dropWorldMember(world, peer_session.Peer.IDHash())
+			}
+		} else if pre_mem, ok := world.pre_members[peer_session.Peer.IDHash()]; ok {
+			if pre_mem.PeerSessionID == peer_session.PeerSessionID {
+				delete(world.pre_members, peer_session.Peer.IDHash())
+			}
+		} else if _, ok := a.join_targets[local_session_id]; ok { //join targets do not check local_session_id.
+			delete(a.join_targets, local_session_id)
+			a.eventCh <- abyss.NeighborEvent{
+				Type:           abyss.ANDJoinFail,
+				LocalSessionID: local_session_id,
+				Text:           JNM_RESET,
+				Value:          JNC_RESET,
+			}
+		}
+	}
+
 	return 0
 }
 
@@ -733,7 +791,7 @@ func (a *AND) dropPeer(peer abyss.IANDPeer) {
 	}
 	for _, ls := range droped_join_targets {
 		for _, pre_mem := range a.join_targets[ls].pre_members {
-			pre_mem.Peer.TrySendRST(ls, pre_mem.PeerSessionID)
+			pre_mem.Peer.TrySendRST(uuid.Nil, pre_mem.PeerSessionID)
 			// we don't handle its failure for now;
 			// it is better to be handled, only if we can clearly predict the recursion
 			// but practically, no
@@ -749,4 +807,105 @@ func (a *AND) dropPeer(peer abyss.IANDPeer) {
 	for _, world := range a.worlds {
 		a.dropWorldMember(world, peer_hash)
 	}
+}
+
+func (a *AND) CheckSanity() error {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
+	//check self connection
+	if _, ok := a.peers[a.local_hash]; ok {
+		return errors.New("self connection")
+	}
+	if _, ok := a.dead_peers[a.local_hash]; ok {
+		return errors.New("self connection (dead)")
+	}
+
+	//ensure peers-dead_peers exclusivity
+	for name := range a.peers {
+		if _, ok := a.dead_peers[name]; ok {
+			return errors.New("peer dead and alive (1)")
+		}
+	}
+	for name := range a.dead_peers {
+		if _, ok := a.peers[name]; ok {
+			return errors.New("peer dead and alive (2)")
+		}
+	}
+
+	//join_connecting - connection state
+	for _, url := range a.join_targets_connecting {
+		if _, ok := a.peers[url.Hash]; ok {
+			return errors.New("connecting connected peer (join)")
+		}
+		if _, ok := a.dead_peers[url.Hash]; ok {
+			return errors.New("connecting dead peer (join)")
+		}
+	}
+
+	//join connected - connection state
+	for _, targ := range a.join_targets {
+		if _, ok := a.peers[targ.peer.IDHash()]; !ok {
+			return errors.New("join target not connected")
+		}
+		if _, ok := a.dead_peers[targ.peer.IDHash()]; ok {
+			return errors.New("join target dead")
+		}
+	}
+
+	//world peers connetion state
+	for _, world := range a.worlds {
+		for _, mem := range world.members {
+			if _, ok := a.peers[mem.Peer.IDHash()]; !ok {
+				return errors.New("member not connected")
+			}
+			if _, ok := a.dead_peers[mem.Peer.IDHash()]; ok {
+				return errors.New("member dead")
+			}
+		}
+		for _, cmem := range world.pre_members {
+			if _, ok := a.peers[cmem.Peer.IDHash()]; !ok {
+				return errors.New("pre_member not connected")
+			}
+			if _, ok := a.dead_peers[cmem.Peer.IDHash()]; ok {
+				return errors.New("pre_member dead")
+			}
+		}
+		for prec := range world.pre_conn_members {
+			if _, ok := a.peers[prec]; ok {
+				return errors.New("pre_conn_member already connected")
+			}
+			if _, ok := a.dead_peers[prec]; ok {
+				return errors.New("pre_conn_member dead")
+			}
+		}
+	}
+
+	//world state exclusivity
+	for id := range a.join_targets_connecting {
+		if _, ok := a.join_targets[id]; ok {
+			return errors.New("world corrupted (1)")
+		}
+		if _, ok := a.worlds[id]; ok {
+			return errors.New("world corrupted (2)")
+		}
+	}
+	for id := range a.join_targets {
+		if _, ok := a.join_targets_connecting[id]; ok {
+			return errors.New("world corrupted (3)")
+		}
+		if _, ok := a.worlds[id]; ok {
+			return errors.New("world corrupted (4)")
+		}
+	}
+	for id := range a.worlds {
+		if _, ok := a.join_targets_connecting[id]; ok {
+			return errors.New("world corrupted (5)")
+		}
+		if _, ok := a.join_targets[id]; ok {
+			return errors.New("world corrupted (6)")
+		}
+	}
+
+	return nil
 }

@@ -65,11 +65,14 @@ func NewJoinTarget(peer abyss.IANDPeer, path string) *JoinTarget {
 const (
 	JNC_REDUNDANT = 110
 
+	//Joiner-side problem
 	JNC_DUPLICATE = 480
 	JNC_CANCELED  = 498
 	JNC_CLOSED    = 499
 
+	//Accepter-side response
 	JNC_COLLISION = 520
+	JNC_RESET     = 598
 	JNC_REJECTED  = 599
 )
 
@@ -81,5 +84,6 @@ const (
 	JNM_CLOSED    = "Peer Disconnected"
 
 	JNM_COLLISION = "Session ID Collided"
+	JNM_RESET     = "Reset Requested"
 	JNM_REJECTED  = "Join Rejected"
 )

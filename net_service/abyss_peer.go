@@ -185,7 +185,6 @@ func (p *AbyssPeer) TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.
 		t string
 		a any
 	}{t: p.origin.localIdentity.IDHash() + ">" + p.IDHash() + " sending RST", a: ahmp.RawRST{
-		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
 	}})
 	if p.outbound.cbor_encoder.Encode(ahmp.RST_T) != nil {

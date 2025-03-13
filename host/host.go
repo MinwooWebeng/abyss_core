@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"abyss_neighbor_discovery/ahmp"
+	"abyss_neighbor_discovery/and"
 	"abyss_neighbor_discovery/aurl"
 	abyss "abyss_neighbor_discovery/interfaces"
 	"abyss_neighbor_discovery/tools/functional"
@@ -85,7 +86,14 @@ func (h *AbyssHost) OpenOutboundConnection(abyss_url *aurl.AURL) {
 }
 
 func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
+	//open is now equally treated with join event
+	join_res_ch := make(chan *WorldCreationEvent, 1)
+
 	local_session_id := uuid.New()
+
+	h.join_q_mtx.Lock()
+	h.join_queue[local_session_id] = join_res_ch
+	h.join_q_mtx.Unlock()
 
 	retval := h.neighborDiscoveryAlgorithm.OpenWorld(local_session_id, world_url)
 	if retval == abyss.EINVAL {
@@ -94,15 +102,14 @@ func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
 		panic("fatal:::AND corrupted while opening world")
 	}
 
-	//open is now equally treated with join event
-	join_res_ch := make(chan *WorldCreationEvent)
+	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
+		panic("AND sanity check failed!!! :: " + err.Error())
+	}
 
-	h.join_q_mtx.Lock()
-	h.join_queue[local_session_id] = join_res_ch
-	h.join_q_mtx.Unlock()
-
+	fmt.Println("owB")
 	//wait for join result.
 	join_res := <-join_res_ch
+	fmt.Println("owC")
 
 	if !join_res.ok {
 		panic("world open failed unexpetedly")
@@ -120,7 +127,11 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 		panic("fatal:::AND corrupted while joining world")
 	}
 
-	join_res_ch := make(chan *WorldCreationEvent)
+	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
+		panic("AND sanity check failed!!! :: " + err.Error())
+	}
+
+	join_res_ch := make(chan *WorldCreationEvent, 1)
 
 	h.join_q_mtx.Lock()
 	h.join_queue[local_session_id] = join_res_ch
@@ -131,6 +142,10 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 		select {
 		case <-ctx.Done():
 			h.neighborDiscoveryAlgorithm.CancelJoin(local_session_id) //this request AND module to early-return join failure
+
+			if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
+				panic("AND sanity check failed!!! :: " + err.Error())
+			}
 		case <-ctx_done_waiter:
 			return
 		}
@@ -151,6 +166,10 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
 	if h.neighborDiscoveryAlgorithm.CloseWorld(world.SessionID()) != 0 {
 		panic("World Leave failed")
+	}
+
+	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
+		panic("AND sanity check failed!!! :: " + err.Error())
 	}
 }
 
@@ -213,6 +232,10 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 		return
 	}
 
+	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
+		panic("AND sanity check failed!!! :: " + err.Error())
+	}
+
 	ahmp_channel := peer.AhmpCh()
 	for {
 		select {
@@ -250,6 +273,10 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 				panic("AND panic!!!")
 			} else if and_result == abyss.EINVAL {
 				fmt.Println("AND: invalid arguments - " + reflect.TypeOf(message_any).String() + fmt.Sprintf("%+v", message_any))
+			}
+
+			if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
+				panic("AND sanity check failed!!! :: " + err.Error())
 			}
 		}
 	}

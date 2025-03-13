@@ -41,7 +41,7 @@ type CRR struct {
 	Hashes          []string
 }
 type RST struct {
-	SenderSessionID uuid.UUID
+	SenderSessionID uuid.UUID //may nil.
 	RecverSessionID uuid.UUID
 }
 

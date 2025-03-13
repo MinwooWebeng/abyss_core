@@ -18,3 +18,13 @@ go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(g
 go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
 go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
 go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
+go test ./test/host_test.go -run TestMoreHosts -v -timeout 60s > ./test_logs/$(get-date -f dd-hh-mm-ss).md
