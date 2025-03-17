@@ -2,12 +2,8 @@ package net_service
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
-	"math/big"
 	"net"
 	"strconv"
 	"sync"
@@ -98,21 +94,11 @@ func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector aby
 }
 
 func NewDefaultTlsConf() (*tls.Config, error) {
-	ed25519_public_key, ed25519_private_key, err := ed25519.GenerateKey(rand.Reader)
+	tls_identity, err := NewTLSIdentity()
 	if err != nil {
 		return nil, err
 	}
 
-	template := x509.Certificate{
-		SerialNumber:          big.NewInt(0),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-	}
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, ed25519_public_key, ed25519_private_key)
-	if err != nil {
-		return nil, err
-	}
 	result := &tls.Config{
 		Certificates: []tls.Certificate{
 			{

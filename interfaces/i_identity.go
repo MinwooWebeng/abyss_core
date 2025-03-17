@@ -2,11 +2,12 @@ package interfaces
 
 type IRemoteIdentity interface {
 	IDHash() string
-	ValidateSignature(payload []byte, signature []byte) bool
+	Encrypt(payload []byte) ([]byte, error)
 }
 
 type ILocalIdentity interface {
+	Certificate() []byte //x509 certificate, not pem
+	SignTLSCertificate() ([]byte, error)
 	IDHash() string
-	Sign(payload []byte) []byte
-	Decrypt(payload []byte) ([]byte, bool)
+	Decrypt(payload []byte) ([]byte, error)
 }
