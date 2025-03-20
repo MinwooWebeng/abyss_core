@@ -26,6 +26,9 @@ type INetworkService interface {
 
 	ListenAndServe(ctx context.Context) error
 
+	AppendKnownPeer(root_cert []byte, handshake_key_cert []byte)
+	RemoveKnownPeer(peer_hash string)
+
 	ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error
 	GetAbyssPeerChannel() chan IANDPeer //abyss mutual connection
 	CloseAbyssPeer(peer IANDPeer)

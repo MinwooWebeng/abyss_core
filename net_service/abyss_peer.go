@@ -12,8 +12,8 @@ import (
 )
 
 type AbyssPeer struct {
-	origin *BetaNetService
-	abyss.IRemoteIdentity
+	origin   *BetaNetService
+	id_hash  string
 	inbound  AbyssInbound
 	outbound AbyssOutbound
 }

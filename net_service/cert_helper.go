@@ -1,12 +1,15 @@
 package net_service
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -18,24 +21,17 @@ import (
 type RootSecrets struct {
 	root_priv_key       crypto.PrivateKey
 	root_self_cert_x509 *x509.Certificate
-	root_self_cert      []byte //der
+	root_self_cert      string //pem
 	root_id_hash        string
 
 	handshake_priv_key *rsa.PrivateKey //may support others in future
-	handshake_key_cert []byte          //der
+	handshake_key_cert string          //pem
 }
 
-func GenerateRootIdentity() (*RootSecrets, error) {
-	root_public_key, root_private_key, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
+// To generate root key, use ed25519.GenerateKey(rand.Reader)
+func NewRootIdentity(root_private_key crypto.PrivateKey) (*RootSecrets, error) {
+	root_public_key := root_private_key.(*ed25519.PrivateKey).Public()
 
-	res, err := LoadRootIdentity(root_public_key, root_private_key)
-	return res, err
-}
-
-func LoadRootIdentity(root_public_key crypto.PublicKey, root_private_key crypto.PrivateKey) (*RootSecrets, error) {
 	//root certificate
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128) // 2^128
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
@@ -91,14 +87,31 @@ func LoadRootIdentity(root_public_key crypto.PublicKey, root_private_key crypto.
 		return nil, err
 	}
 
+	var root_cert_buf bytes.Buffer
+	err = pem.Encode(&root_cert_buf, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: r_derBytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var handshake_cert_buf bytes.Buffer
+	err = pem.Encode(&handshake_cert_buf, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: h_derBytes,
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &RootSecrets{
 		root_priv_key:       root_private_key,
 		root_self_cert_x509: r_x509,
-		root_self_cert:      r_derBytes,
+		root_self_cert:      root_cert_buf.String(),
 		root_id_hash:        id_hash,
 
 		handshake_priv_key: handshake_private_key,
-		handshake_key_cert: h_derBytes,
+		handshake_key_cert: handshake_cert_buf.String(),
 	}, nil
 }
 func AbyssIdFromKey(pub crypto.PublicKey) (string, error) {
@@ -111,9 +124,18 @@ func AbyssIdFromKey(pub crypto.PublicKey) (string, error) {
 	return "I" + base58.Encode(hasher.Sum(nil)), nil
 }
 
+func (r *RootSecrets) IDHash() string {
+	return r.root_id_hash
+}
 func (r *RootSecrets) DecryptHandshake(body []byte) ([]byte, error) {
 	res, err := rsa.DecryptOAEP(sha3.New256(), rand.Reader, r.handshake_priv_key, body, nil)
 	return res, err
+}
+func (r *RootSecrets) RootCertificate() string {
+	return r.root_self_cert
+}
+func (r *RootSecrets) HandshakeKeyCertificate() string {
+	return r.handshake_key_cert
 }
 
 type TLSIdentity struct {
@@ -178,8 +200,62 @@ func (r *RootSecrets) NewTLSIdentity() (*TLSIdentity, error) {
 }
 
 type PeerIdentity struct {
-	// [TODO]
-	// construct from peer root cert and handshake key cert
-	// encrypt payload with handshake public key
-	// verify TLS-abyss binding
+	root_self_cert_x509 *x509.Certificate
+	root_id_hash        string
+	handshake_pub_key   *rsa.PublicKey
+}
+
+func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIdentity, error) {
+	root_self_cert_x509, err := x509.ParseCertificate(root_self_cert)
+	if err != nil {
+		return nil, err
+	}
+	handshake_key_cert_x509, err := x509.ParseCertificate(handshake_key_cert)
+	if err != nil {
+		return nil, err
+	}
+
+	if root_self_cert_x509.Issuer.CommonName != root_self_cert_x509.Subject.CommonName {
+		return nil, errors.New("invalid root certificate")
+	}
+	id_hash, err := AbyssIdFromKey(root_self_cert_x509.PublicKey)
+	if id_hash != root_self_cert_x509.Issuer.CommonName {
+		return nil, errors.New("invalid root certificate")
+	}
+
+	if handshake_key_cert_x509.Issuer.CommonName != root_self_cert_x509.Issuer.CommonName {
+		return nil, errors.New("issuer mismatch")
+	}
+	if handshake_key_cert_x509.Subject.CommonName != "H-OAEP-SHA3-256-"+root_self_cert_x509.Issuer.CommonName {
+		return nil, errors.New("unsupported public key encryption scheme")
+	}
+	if err := handshake_key_cert_x509.CheckSignatureFrom(root_self_cert_x509); err != nil {
+		return nil, err
+	}
+	pkey, ok := handshake_key_cert_x509.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return nil, errors.New("unsupported public key")
+	}
+	return &PeerIdentity{
+		root_self_cert_x509: root_self_cert_x509,
+		root_id_hash:        id_hash,
+		handshake_pub_key:   pkey,
+	}, nil
+}
+
+func (p *PeerIdentity) IDHash() string {
+	return p.root_id_hash
+}
+func (p *PeerIdentity) EncryptHandshake(payload []byte) ([]byte, error) {
+	res, err := rsa.EncryptOAEP(sha3.New256(), rand.Reader, p.handshake_pub_key, payload, nil)
+	return res, err
+}
+func (p *PeerIdentity) VerifyTLSBinding(abyss_bind_cert *x509.Certificate) error {
+	if abyss_bind_cert.Issuer.CommonName != p.root_self_cert_x509.Issuer.CommonName {
+		return errors.New("issuer mismatch")
+	}
+	if abyss_bind_cert.Subject.CommonName != "T-"+p.root_self_cert_x509.Issuer.CommonName {
+		return errors.New("subject mismatch")
+	}
+	return abyss_bind_cert.CheckSignatureFrom(p.root_self_cert_x509)
 }

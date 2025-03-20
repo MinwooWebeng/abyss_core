@@ -2,6 +2,7 @@ package net_service
 
 import (
 	"context"
+	"crypto"
 	"crypto/tls"
 	"errors"
 	"net"
@@ -17,7 +18,7 @@ import (
 )
 
 type BetaNetService struct {
-	localIdentity   abyss.ILocalIdentity
+	localIdentity   *RootSecrets
 	addressSelector abyss.IAddressSelector
 
 	quicTransport *quic.Transport
@@ -52,20 +53,28 @@ func _getLocalIP() (string, error) {
 	return localAddr.IP.String(), nil
 }
 
-func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector abyss.IAddressSelector) (*BetaNetService, error) {
+func NewBetaNetService(local_private_key crypto.PrivateKey, address_selector abyss.IAddressSelector) (*BetaNetService, error) {
 	result := new(BetaNetService)
 
-	result.localIdentity = local_identity
+	root_secret, err := NewRootIdentity(local_private_key)
+	if err != nil {
+		return nil, err
+	}
+
+	result.localIdentity = root_secret
 	result.addressSelector = address_selector
+
+	tls_identity, err := root_secret.NewTLSIdentity()
+	if err != nil {
+		return nil, err
+	}
+	result.tlsConf = NewDefaultTlsConf(tls_identity)
 
 	udpConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
 		return nil, err
 	}
 	result.quicTransport = &quic.Transport{Conn: udpConn}
-	if result.tlsConf, err = NewDefaultTlsConf(); err != nil {
-		return nil, err
-	}
 	result.quicConf = NewDefaultQuicConf()
 
 	local_port := strconv.Itoa(udpConn.LocalAddr().(*net.UDPAddr).Port)
@@ -74,7 +83,7 @@ func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector aby
 		return nil, err
 	}
 	result.local_aurl, err = aurl.ParseAURL("abyss:" +
-		local_identity.IDHash() +
+		root_secret.IDHash() +
 		":" + local_ip + ":" + local_port +
 		"|127.0.0.1:" + local_port)
 	if err != nil {
@@ -87,29 +96,34 @@ func NewBetaNetService(local_identity abyss.ILocalIdentity, address_selector aby
 	result.outbound_ongoing = make(map[string]*net.UDPAddr)
 	result.outbound_ongoing_mtx = new(sync.Mutex)
 
-	result.abyssPeerCH = make(chan abyss.IANDPeer, 32)
-	result.abystServerCH = make(chan abyss.AbystInboundSession, 64)
+	result.abyssPeerCH = make(chan abyss.IANDPeer, 8)
+	result.abystServerCH = make(chan abyss.AbystInboundSession, 16)
 
 	return result, nil
 }
 
-func NewDefaultTlsConf() (*tls.Config, error) {
-	tls_identity, err := NewTLSIdentity()
-	if err != nil {
-		return nil, err
-	}
-
-	result := &tls.Config{
+func NewDefaultTlsConf(tls_identity *TLSIdentity) *tls.Config {
+	return &tls.Config{
 		Certificates: []tls.Certificate{
 			{
-				Certificate: [][]byte{derBytes},
-				PrivateKey:  ed25519_private_key,
+				Certificate: [][]byte{tls_identity.tls_self_cert},
+				PrivateKey:  tls_identity.priv_key,
 			},
 		},
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) > 1 {
+				return errors.New("too many TLS peer certificate")
+			}
+			cert := cs.PeerCertificates[0]
+			if err := cert.CheckSignatureFrom(cert); err != nil {
+				return err
+			}
+			return nil
+		},
 		NextProtos:         []string{abyss.NextProtoAbyss, http3.NextProtoH3},
+		ClientAuth:         tls.RequireAnyClientCert,
 		InsecureSkipVerify: true,
 	}
-	return result, nil
 }
 
 func NewDefaultQuicConf() *quic.Config {

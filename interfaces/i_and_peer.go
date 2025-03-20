@@ -17,7 +17,7 @@ type ANDPeerSessionInfo struct {
 }
 
 type IANDPeer interface {
-	IRemoteIdentity
+	IDHash() string
 	AURL() *aurl.AURL
 
 	AhmpCh() chan any

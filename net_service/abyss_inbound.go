@@ -45,7 +45,7 @@ func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection qui
 		return
 	}
 	//decrypt the payload with local private key - verify if this payload is for me.
-	client_self_auth_decrypted, err := h.localIdentity.Decrypt(client_self_auth_raw)
+	client_self_auth_decrypted, err := h.localIdentity.DecryptHandshake(client_self_auth_raw)
 	if err != nil {
 		connection.CloseWithError(0, "failed to decrypt client-auth payload")
 		return
