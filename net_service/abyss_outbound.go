@@ -1,44 +1,68 @@
 package net_service
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"net"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/quic-go/quic-go"
-
-	"abyss_neighbor_discovery/ahmp"
-	abyss "abyss_neighbor_discovery/interfaces"
 )
 
 type AbyssOutbound struct {
 	connection   quic.Connection
-	identity     abyss.IRemoteIdentity
+	peer_hash    string
 	addresses    []*net.UDPAddr
 	cbor_encoder *cbor.Encoder
+	err          error
 }
 
-func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection quic.Connection, identity string, addresses []*net.UDPAddr) {
-	if connection == nil {
-		//failed to connect
-		h.abyssOutBound <- AbyssOutbound{nil, nil, nil, nil}
-		return
-	}
+func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection quic.Connection, peer_hash string, addresses []*net.UDPAddr) {
+	result := AbyssOutbound{connection, peer_hash, nil, nil, errors.New("unknown error")}
+	defer func() {
+		h.abyssOutBound <- result
+	}()
+
+	//get self-signed TLS certificate that the peer presented.
+	tls_info := connection.ConnectionState().TLS
+	client_tls_cert := tls_info.PeerCertificates[0] //*x509.Certificate, validated
 
 	ahmp_stream, err := connection.OpenStreamSync(ctx)
 	if err != nil {
-		connection.CloseWithError(0, err.Error())
+		result.err = err
 		return
 	}
 	ahmp_cbor_enc := cbor.NewEncoder(ahmp_stream)
 	ahmp_cbor_dec := cbor.NewDecoder(ahmp_stream)
 
-	ahmp_cbor_enc.Encode(ahmp.DummyAuth{Name: h.localIdentity.IDHash()})
-
-	var dummy_auth ahmp.DummyAuth
-	if err = ahmp_cbor_dec.Decode(&dummy_auth); err != nil {
+	known_identity, ok := h.findKnownPeer(peer_hash)
+	if !ok {
+		result.err = errors.New("unknown peer")
 		return
 	}
 
-	h.abyssOutBound <- AbyssOutbound{connection, NewBetaRemoteIdentity(identity), addresses, ahmp_cbor_enc}
+	//send {local peer_hash, local tls-abyss binding cert} encrypted with remote handshake key.
+	var handshake_1_buf bytes.Buffer
+	cbor.MarshalToBuffer(h.localIdentity.IDHash(), &handshake_1_buf)
+	cbor.MarshalToBuffer(h.tlsIdentity.abyss_bind_cert, &handshake_1_buf)
+	handshake_1_payload, err := known_identity.EncryptHandshake(handshake_1_buf.Bytes())
+	if err != nil {
+		result.err = err
+		return
+	}
+	if err := ahmp_cbor_enc.Encode(handshake_1_payload); err != nil {
+		result.err = err
+		return
+	}
+
+	//receive accepter-side self-authentication
+	var handshake_2_payload []byte
+	ahmp_cbor_dec.Decode(handshake_2_payload)
+	if err := known_identity.VerifyTLSBinding(handshake_2_payload, client_tls_cert); err != nil {
+		result.err = err
+		return
+	}
+
+	result = AbyssOutbound{connection, peer_hash, addresses, ahmp_cbor_enc, nil}
 }

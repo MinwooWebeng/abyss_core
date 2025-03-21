@@ -1,8 +1,8 @@
 package interfaces
 
-type IRemoteIdentity interface {
-	IDHash() string
-}
+// type IRemoteIdentity interface {
+// 	IDHash() string
+// }
 
 type ILocalIdentity interface {
 	IDHash() string

@@ -33,9 +33,9 @@ type AbyssHost struct {
 	listen_done chan bool
 	event_done  chan bool
 
-	networkService             abyss.INetworkService
+	NetworkService             abyss.INetworkService
 	neighborDiscoveryAlgorithm abyss.INeighborDiscovery
-	pathResolver               abyss.IPathResolver
+	PathResolver               abyss.IPathResolver
 
 	abystClientTr *http3.Transport
 
@@ -50,9 +50,9 @@ func NewAbyssHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, p
 	return &AbyssHost{
 		listen_done:                make(chan bool, 1),
 		event_done:                 make(chan bool, 1),
-		networkService:             netServ,
+		NetworkService:             netServ,
 		neighborDiscoveryAlgorithm: nda,
-		pathResolver:               path_resolver,
+		PathResolver:               path_resolver,
 		abystClientTr: &http3.Transport{
 			Dial: func(ctx context.Context, addr string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
 				return nil, errors.New("dialing in abyst transport is prohibited")
@@ -66,7 +66,7 @@ func NewAbyssHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, p
 }
 
 func (h *AbyssHost) GetLocalAbyssURL() *aurl.AURL {
-	origin := h.networkService.LocalAURL()
+	origin := h.NetworkService.LocalAURL()
 	return &aurl.AURL{
 		Scheme: origin.Scheme,
 		Hash:   origin.Hash,
@@ -82,7 +82,7 @@ func (h *AbyssHost) GetLocalAbyssURL() *aurl.AURL {
 }
 
 func (h *AbyssHost) OpenOutboundConnection(abyss_url *aurl.AURL) {
-	h.networkService.ConnectAbyssAsync(h.ctx, abyss_url)
+	h.NetworkService.ConnectAbyssAsync(h.ctx, abyss_url)
 }
 
 func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
@@ -106,10 +106,8 @@ func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
 		panic("AND sanity check failed!!! :: " + err.Error())
 	}
 
-	fmt.Println("owB")
 	//wait for join result.
 	join_res := <-join_res_ch
-	fmt.Println("owC")
 
 	if !join_res.ok {
 		panic("world open failed unexpetedly")
@@ -174,14 +172,14 @@ func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
 }
 
 func (h *AbyssHost) GetAbystClientConnection(ctx context.Context, peer_hash string) (*http3.ClientConn, error) {
-	conn, err := h.networkService.ConnectAbyst(ctx, peer_hash)
+	conn, err := h.NetworkService.ConnectAbyst(ctx, peer_hash)
 	if err != nil {
 		return nil, err
 	}
 	return h.abystClientTr.NewClientConn(conn), nil
 }
 func (h *AbyssHost) GetAbystServerPeerChannel() chan abyss.AbystInboundSession {
-	return h.networkService.GetAbystServerPeerChannel()
+	return h.NetworkService.GetAbystServerPeerChannel()
 }
 
 func (h *AbyssHost) ListenAndServe(ctx context.Context) {
@@ -192,7 +190,7 @@ func (h *AbyssHost) ListenAndServe(ctx context.Context) {
 
 	net_done := make(chan bool, 1)
 	go func() {
-		if err := h.networkService.ListenAndServe(ctx); err != nil {
+		if err := h.NetworkService.ListenAndServe(ctx); err != nil {
 			fmt.Println(time.Now().Format("00:00:00.000") + "[network service failed] " + err.Error())
 		}
 		net_done <- true
@@ -209,7 +207,7 @@ func (h *AbyssHost) ListenAndServe(ctx context.Context) {
 func (h *AbyssHost) listenLoop() {
 	var wg sync.WaitGroup
 
-	accept_ch := h.networkService.GetAbyssPeerChannel()
+	accept_ch := h.NetworkService.GetAbyssPeerChannel()
 	for {
 		select {
 		case <-h.ctx.Done():
@@ -246,7 +244,7 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 
 			switch message := message_any.(type) {
 			case *ahmp.JN:
-				local_session_id, ok := h.pathResolver.PathToSessionID(message.Text, peer.IDHash())
+				local_session_id, ok := h.PathResolver.PathToSessionID(message.Text, peer.IDHash())
 				if !ok {
 					continue // TODO: respond with proper error code
 				}
@@ -370,7 +368,7 @@ func (h *AbyssHost) eventLoop() {
 				world.RaiseWorldTerminate()
 			case abyss.ANDConnectRequest:
 				//fmt.Println("event ::: abyss.ANDConnectRequest")
-				h.networkService.ConnectAbyssAsync(h.ctx, e.Object.(*aurl.AURL))
+				h.NetworkService.ConnectAbyssAsync(h.ctx, e.Object.(*aurl.AURL))
 			case abyss.ANDTimerRequest:
 				target_local_session := e.LocalSessionID
 				duration := e.Value

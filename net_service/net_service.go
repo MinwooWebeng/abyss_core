@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto"
 	"crypto/tls"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -22,12 +24,16 @@ type BetaNetService struct {
 	addressSelector abyss.IAddressSelector
 
 	quicTransport *quic.Transport
+	tlsIdentity   *TLSIdentity
 	tlsConf       *tls.Config
 	quicConf      *quic.Config
 
 	local_aurl *aurl.AURL
 
 	preAccepter abyss.IPreAccepter
+
+	known_peers     map[string]*PeerIdentity
+	known_peers_mtx *sync.Mutex
 
 	abyssInBound  chan AbyssInbound
 	abyssOutBound chan AbyssOutbound
@@ -65,6 +71,7 @@ func NewBetaNetService(local_private_key crypto.PrivateKey, address_selector aby
 	result.addressSelector = address_selector
 
 	tls_identity, err := root_secret.NewTLSIdentity()
+	result.tlsIdentity = tls_identity
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +96,9 @@ func NewBetaNetService(local_private_key crypto.PrivateKey, address_selector aby
 	if err != nil {
 		return nil, err
 	}
+
+	result.known_peers = make(map[string]*PeerIdentity)
+	result.known_peers_mtx = new(sync.Mutex)
 
 	result.abyssInBound = make(chan AbyssInbound, 4)
 	result.abyssOutBound = make(chan AbyssOutbound, 4)
@@ -116,7 +126,7 @@ func NewDefaultTlsConf(tls_identity *TLSIdentity) *tls.Config {
 			}
 			cert := cs.PeerCertificates[0]
 			if err := cert.CheckSignatureFrom(cert); err != nil {
-				return err
+				return errors.Join(errors.New("TLS Verify Failed"), err)
 			}
 			return nil
 		},
@@ -136,6 +146,9 @@ func NewDefaultQuicConf() *quic.Config {
 	}
 }
 
+func (h *BetaNetService) LocalIdentity() abyss.ILocalIdentity {
+	return h.localIdentity
+}
 func (h *BetaNetService) LocalAURL() *aurl.AURL {
 	return h.local_aurl
 }
@@ -177,20 +190,71 @@ func (h *BetaNetService) constructingAbyssPeers(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case inbound := <-h.abyssInBound:
-			if outbound, ok := abyssOutParts[inbound.identity]; ok {
+			if inbound.err != nil {
+				fmt.Println(h.localIdentity.root_id_hash + "(inbound): " + inbound.err.Error())
+				//TODO: handle faulty inbound connection.
+				//vulnerable
+				if inbound.connection != nil {
+					inbound.connection.CloseWithError(0, "abyss handshake failed (inbound)")
+				}
+				continue
+			}
+
+			if outbound, ok := abyssOutParts[inbound.peer_hash]; ok {
 				h.abyssPeerCH <- NewAbyssPeer(h, inbound, outbound)
 			} else {
-				abyssInParts[inbound.identity] = inbound
+				abyssInParts[inbound.peer_hash] = inbound
 			}
 		case outbound := <-h.abyssOutBound:
-			//TODO: handle connection failure.
-			if inbound, ok := abyssInParts[outbound.identity.IDHash()]; ok {
+			if outbound.err != nil {
+				fmt.Println(h.localIdentity.root_id_hash + "(outbound): " + outbound.err.Error())
+				//TODO: handle connection failure.
+				//vulnerable
+				if outbound.connection != nil {
+					outbound.connection.CloseWithError(0, "abyss handshake failed (outbound)")
+				}
+				continue
+			}
+
+			if inbound, ok := abyssInParts[outbound.peer_hash]; ok {
 				h.abyssPeerCH <- NewAbyssPeer(h, inbound, outbound)
 			} else {
-				abyssOutParts[outbound.identity.IDHash()] = outbound
+				abyssOutParts[outbound.peer_hash] = outbound
 			}
 		}
 	}
+}
+
+func (h *BetaNetService) AppendKnownPeer(root_cert string, handshake_key_cert string) error {
+	root_cert_block, _ := pem.Decode([]byte(root_cert))
+	handshake_key_cert_block, _ := pem.Decode([]byte(handshake_key_cert))
+	if root_cert_block == nil || handshake_key_cert_block == nil {
+		return errors.New("failed to parse peer certificates")
+	}
+
+	peer_identity, err := NewPeerIdentity(root_cert_block.Bytes, handshake_key_cert_block.Bytes)
+	if err != nil {
+		return err
+	}
+
+	h.known_peers_mtx.Lock()
+	defer h.known_peers_mtx.Unlock()
+
+	h.known_peers[peer_identity.root_id_hash] = peer_identity
+	return nil
+}
+func (h *BetaNetService) RemoveKnownPeer(peer_hash string) {
+	h.known_peers_mtx.Lock()
+	defer h.known_peers_mtx.Unlock()
+
+	delete(h.known_peers, peer_hash)
+}
+func (h *BetaNetService) findKnownPeer(peer_hash string) (*PeerIdentity, bool) {
+	h.known_peers_mtx.Lock()
+	defer h.known_peers_mtx.Unlock()
+
+	res, ok := h.known_peers[peer_hash]
+	return res, ok
 }
 
 func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error {
@@ -215,12 +279,13 @@ func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) 
 	return nil
 }
 
-func (h *BetaNetService) _connectAbyss(ctx context.Context, addresses []*net.UDPAddr, identity string) {
+func (h *BetaNetService) _connectAbyss(ctx context.Context, addresses []*net.UDPAddr, peer_hash string) {
 	connection, err := h.quicTransport.Dial(ctx, addresses[0], h.tlsConf, h.quicConf)
 	if err != nil {
-		h.PrepareAbyssOutbound(ctx, nil, identity, addresses)
+		h.abyssOutBound <- AbyssOutbound{nil, peer_hash, nil, nil, err}
+		return
 	}
-	h.PrepareAbyssOutbound(ctx, connection, identity, addresses)
+	h.PrepareAbyssOutbound(ctx, connection, peer_hash, addresses)
 }
 
 func (h *BetaNetService) GetAbyssPeerChannel() chan abyss.IANDPeer {

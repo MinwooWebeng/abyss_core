@@ -9,7 +9,7 @@ import (
 )
 
 type IPreAccepter interface {
-	PreAccept(identity IRemoteIdentity, address *net.UDPAddr) (bool, int, string)
+	PreAccept(peer_hash string, address *net.UDPAddr) (bool, int, string)
 }
 
 type AbystInboundSession struct {
@@ -20,13 +20,14 @@ type AbystInboundSession struct {
 // 1. AbyssAsync 'always' succeeds, resulting in IANDPeer -> if connection failed, IANDPeer methods return error.
 // 2. Abyst may fail at any moment
 type INetworkService interface {
+	LocalIdentity() ILocalIdentity
 	LocalAURL() *aurl.AURL
 
 	HandlePreAccept(preaccept_handler IPreAccepter) // if false, return status code and message
 
 	ListenAndServe(ctx context.Context) error
 
-	AppendKnownPeer(root_cert []byte, handshake_key_cert []byte)
+	AppendKnownPeer(root_cert string, handshake_key_cert string) error
 	RemoveKnownPeer(peer_hash string)
 
 	ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error

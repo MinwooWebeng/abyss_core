@@ -9,11 +9,7 @@ import (
 func NewBetaAbyssHost(root_private_key crypto.PrivateKey) (*AbyssHost, *DefaultPathResolver) {
 	address_selector := abyss_net.NewBetaAddressSelector()
 	path_resolver := NewDefaultPathResolver()
-	root, err := abyss_net.NewRootIdentity(root_private_key)
-	if err != nil {
-		panic("failed to load root identity")
-	}
-	netserv, _ := abyss_net.NewBetaNetService(root, address_selector)
+	netserv, _ := abyss_net.NewBetaNetService(root_private_key, address_selector)
 
-	return NewAbyssHost(netserv, abyss_and.NewAND(root.IDHash()), path_resolver), path_resolver
+	return NewAbyssHost(netserv, abyss_and.NewAND(netserv.LocalAURL().Hash), path_resolver), path_resolver
 }

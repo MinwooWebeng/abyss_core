@@ -2,6 +2,8 @@ package test
 
 import (
 	"context"
+	"crypto/ed25519"
+	crypto_rand "crypto/rand"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -85,41 +87,51 @@ func printWorldEvents(time_begin time.Time, prefix string, host abyss.IAbyssHost
 
 func TestHost(t *testing.T) {
 	time_begin := time.Now()
-	hostA, hostA_pathMap := abyss_host.NewBetaAbyssHost("hostA")
-	hostB, _ := abyss_host.NewBetaAbyssHost("hostB")
+	_, privkey, err := ed25519.GenerateKey(crypto_rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostA, hostA_pathMap := abyss_host.NewBetaAbyssHost(&privkey)
+	_, privkey, err = ed25519.GenerateKey(crypto_rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostB, _ := abyss_host.NewBetaAbyssHost(&privkey)
 
 	go hostA.ListenAndServe(context.Background())
 	go hostB.ListenAndServe(context.Background())
+
+	hostA.NetworkService.AppendKnownPeer(hostB.NetworkService.LocalIdentity().RootCertificate(), hostB.NetworkService.LocalIdentity().HandshakeKeyCertificate())
+	hostB.NetworkService.AppendKnownPeer(hostA.NetworkService.LocalIdentity().RootCertificate(), hostA.NetworkService.LocalIdentity().HandshakeKeyCertificate())
 
 	A_world, err := hostA.OpenWorld("http://a.world.com")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Println("[hostA] Opened World: " + A_world.SessionID().String())
+	fmt.Println("[" + hostA.GetLocalAbyssURL().Hash + "] Opened World: " + A_world.SessionID().String())
 	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
 	A_world_fin := make(chan bool, 1)
-	go printWorldEvents(time_begin, "[hostA]", hostA, A_world, 30000, make(chan string, 1), A_world_fin)
+	go printWorldEvents(time_begin, "["+hostA.GetLocalAbyssURL().Hash+"]", hostA, A_world, 30000, make(chan string, 1), A_world_fin)
 
-	<-time.After(time.Second)
+	<-time.After(100 * time.Millisecond)
 	hostA.OpenOutboundConnection(hostB.GetLocalAbyssURL())
 
 	join_url := hostA.GetLocalAbyssURL()
 	join_url.Path = "/home"
 
-	fmt.Println("[hostB] Joining World")
-	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	fmt.Println("[" + hostB.GetLocalAbyssURL().Hash + "] Joining World")
+	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), time.Second)
 	B_A_world, err := hostB.JoinWorld(join_ctx, join_url)
 	join_ctx_cancel()
 
 	if err != nil {
-		fmt.Println("[hostB] Join Failed:::" + err.Error())
-		return
+		t.Fatal("[" + hostB.GetLocalAbyssURL().Hash + "] Join Failed:::" + err.Error())
 	}
-	fmt.Println("[hostB] Joined World: " + B_A_world.SessionID().String())
+	fmt.Println("[" + hostB.GetLocalAbyssURL().Hash + "] Joined World: " + B_A_world.SessionID().String())
 
 	B_A_world_fin := make(chan bool, 1)
-	go printWorldEvents(time_begin, "[hostB]", hostB, B_A_world, 30000, make(chan string, 1), B_A_world_fin)
+	go printWorldEvents(time_begin, "["+hostB.GetLocalAbyssURL().Hash+"]", hostB, B_A_world, 30000, make(chan string, 1), B_A_world_fin)
 
 	<-A_world_fin
 	<-B_A_world_fin
@@ -283,15 +295,17 @@ func TestMoreHosts(t *testing.T) {
 	hosts := make([]*AutonomousHost, N_hosts)
 	done_ch := make(chan bool, N_hosts)
 	for i := range N_hosts {
-		host_name := "host" + strconv.Itoa(i+1)
-
-		host, host_pathMap := abyss_host.NewBetaAbyssHost(host_name)
+		_, privkey, err := ed25519.GenerateKey(crypto_rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		host, host_pathMap := abyss_host.NewBetaAbyssHost(privkey)
 
 		hosts[i] = &AutonomousHost{
 			global_join_targets: global_world_reg,
 			abyss_host:          host,
 			abyss_pathMap:       host_pathMap,
-			log_prefix:          " [" + host_name + "] ",
+			log_prefix:          " [" + host.GetLocalAbyssURL().Hash + "] ",
 		}
 		go hosts[i].Run(ctx, time_begin, done_ch)
 	}

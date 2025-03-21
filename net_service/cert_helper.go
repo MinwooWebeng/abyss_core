@@ -38,16 +38,16 @@ func NewRootIdentity(root_private_key crypto.PrivateKey) (*RootSecrets, error) {
 	if err != nil {
 		return nil, err
 	}
-	id_hash, err := AbyssIdFromKey(root_public_key)
+	peer_hash, err := AbyssIdFromKey(root_public_key)
 	if err != nil {
 		return nil, err
 	}
 	r_template := x509.Certificate{
 		Issuer: pkix.Name{
-			CommonName: id_hash,
+			CommonName: peer_hash,
 		},
 		Subject: pkix.Name{
-			CommonName: id_hash,
+			CommonName: peer_hash,
 		},
 		NotBefore:             time.Now().Add(time.Duration(-1) * time.Second), //1-sec backdate, for badly synced peers.
 		SerialNumber:          serialNumber,
@@ -66,16 +66,19 @@ func NewRootIdentity(root_private_key crypto.PrivateKey) (*RootSecrets, error) {
 
 	//handshake key
 	handshake_private_key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
 	serialNumber, err = rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
 		return nil, err
 	}
 	h_template := x509.Certificate{
 		Issuer: pkix.Name{
-			CommonName: id_hash,
+			CommonName: peer_hash,
 		},
 		Subject: pkix.Name{
-			CommonName: "H-OAEP-SHA3-256-" + id_hash, //handshake encryption key, RSA OAEP with SHA3-256 hash function.
+			CommonName: "H-OAEP-SHA3-256-" + peer_hash, //handshake encryption key, RSA OAEP with SHA3-256 hash function.
 		},
 		NotBefore:             time.Now().Add(time.Duration(-1) * time.Second), //1-sec backdate, for badly synced peers.
 		SerialNumber:          serialNumber,
@@ -108,7 +111,7 @@ func NewRootIdentity(root_private_key crypto.PrivateKey) (*RootSecrets, error) {
 		root_priv_key:       root_private_key,
 		root_self_cert_x509: r_x509,
 		root_self_cert:      root_cert_buf.String(),
-		root_id_hash:        id_hash,
+		root_id_hash:        peer_hash,
 
 		handshake_priv_key: handshake_private_key,
 		handshake_key_cert: handshake_cert_buf.String(),
@@ -159,7 +162,7 @@ func (r *RootSecrets) NewTLSIdentity() (*TLSIdentity, error) {
 		NotBefore:             time.Now().Add(time.Duration(-1) * time.Second), //1-sec backdate, for badly synced peers.
 		NotAfter:              time.Now().Add(7 * 24 * time.Hour),              // Valid for 7 days
 		SerialNumber:          serialNumber,
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		IsCA:                  true,
 		BasicConstraintsValid: true,
@@ -218,8 +221,11 @@ func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIde
 	if root_self_cert_x509.Issuer.CommonName != root_self_cert_x509.Subject.CommonName {
 		return nil, errors.New("invalid root certificate")
 	}
-	id_hash, err := AbyssIdFromKey(root_self_cert_x509.PublicKey)
-	if id_hash != root_self_cert_x509.Issuer.CommonName {
+	peer_hash, err := AbyssIdFromKey(root_self_cert_x509.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	if peer_hash != root_self_cert_x509.Issuer.CommonName {
 		return nil, errors.New("invalid root certificate")
 	}
 
@@ -238,7 +244,7 @@ func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIde
 	}
 	return &PeerIdentity{
 		root_self_cert_x509: root_self_cert_x509,
-		root_id_hash:        id_hash,
+		root_id_hash:        peer_hash,
 		handshake_pub_key:   pkey,
 	}, nil
 }
@@ -250,12 +256,21 @@ func (p *PeerIdentity) EncryptHandshake(payload []byte) ([]byte, error) {
 	res, err := rsa.EncryptOAEP(sha3.New256(), rand.Reader, p.handshake_pub_key, payload, nil)
 	return res, err
 }
-func (p *PeerIdentity) VerifyTLSBinding(abyss_bind_cert *x509.Certificate) error {
+func (p *PeerIdentity) VerifyTLSBinding(abyss_bind_cert_der []byte, tls_cert *x509.Certificate) error {
+	abyss_bind_cert, err := x509.ParseCertificate(abyss_bind_cert_der)
+	if err != nil {
+		return err
+	}
+	//compare abyss_bind_cert.PublicKey and tls_cert.PublicKey
+	if !abyss_bind_cert.PublicKey.(ed25519.PublicKey).Equal(tls_cert.PublicKey) {
+		return errors.New("tls public key mismatch")
+	}
+
 	if abyss_bind_cert.Issuer.CommonName != p.root_self_cert_x509.Issuer.CommonName {
 		return errors.New("issuer mismatch")
 	}
 	if abyss_bind_cert.Subject.CommonName != "T-"+p.root_self_cert_x509.Issuer.CommonName {
 		return errors.New("subject mismatch")
 	}
-	return abyss_bind_cert.CheckSignatureFrom(p.root_self_cert_x509)
+	return errors.Join(errors.New("VerifyTLSBinding"), abyss_bind_cert.CheckSignatureFrom(p.root_self_cert_x509))
 }
