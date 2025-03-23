@@ -307,7 +307,6 @@ func TestMoreHosts(t *testing.T) {
 			abyss_pathMap:       host_pathMap,
 			log_prefix:          " [" + host.GetLocalAbyssURL().Hash + "] ",
 		}
-		go hosts[i].Run(ctx, time_begin, done_ch)
 	}
 	for i, h := range hosts {
 		for j, h_other := range hosts {
@@ -319,6 +318,9 @@ func TestMoreHosts(t *testing.T) {
 				panic("failed to register peer info")
 			}
 		}
+	}
+	for _, h := range hosts {
+		go h.Run(ctx, time_begin, done_ch)
 	}
 	for range N_hosts {
 		<-done_ch
