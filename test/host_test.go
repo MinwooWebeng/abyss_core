@@ -299,7 +299,7 @@ func TestMoreHosts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		host, host_pathMap := abyss_host.NewBetaAbyssHost(privkey)
+		host, host_pathMap := abyss_host.NewBetaAbyssHost(&privkey)
 
 		hosts[i] = &AutonomousHost{
 			global_join_targets: global_world_reg,
@@ -308,6 +308,17 @@ func TestMoreHosts(t *testing.T) {
 			log_prefix:          " [" + host.GetLocalAbyssURL().Hash + "] ",
 		}
 		go hosts[i].Run(ctx, time_begin, done_ch)
+	}
+	for i, h := range hosts {
+		for j, h_other := range hosts {
+			if i == j {
+				continue
+			}
+			h_other_id := h_other.abyss_host.NetworkService.LocalIdentity()
+			if h.abyss_host.NetworkService.AppendKnownPeer(h_other_id.RootCertificate(), h_other_id.HandshakeKeyCertificate()) != nil {
+				panic("failed to register peer info")
+			}
+		}
 	}
 	for range N_hosts {
 		<-done_ch

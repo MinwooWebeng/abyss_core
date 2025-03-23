@@ -39,7 +39,7 @@ func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection qui
 
 	//receive connecter-side self-authentication payload
 	var handshake_1_raw []byte
-	if err := ahmp_cbor_dec.Decode(handshake_1_raw); err != nil {
+	if err := ahmp_cbor_dec.Decode(&handshake_1_raw); err != nil {
 		result.err = err
 		return
 	}
@@ -57,7 +57,7 @@ func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection qui
 		return
 	}
 	var abyss_bind_cert []byte
-	if err := cbor.Unmarshal(rest, abyss_bind_cert); err != nil {
+	if err := cbor.Unmarshal(rest, &abyss_bind_cert); err != nil {
 		result.err = err
 		return
 	}

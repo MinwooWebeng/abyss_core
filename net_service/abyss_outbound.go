@@ -58,7 +58,10 @@ func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection qu
 
 	//receive accepter-side self-authentication
 	var handshake_2_payload []byte
-	ahmp_cbor_dec.Decode(handshake_2_payload)
+	if err := ahmp_cbor_dec.Decode(&handshake_2_payload); err != nil {
+		result.err = err
+		return
+	}
 	if err := known_identity.VerifyTLSBinding(handshake_2_payload, client_tls_cert); err != nil {
 		result.err = err
 		return

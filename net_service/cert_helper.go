@@ -3,6 +3,8 @@ package net_service
 import (
 	"bytes"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
@@ -78,7 +80,7 @@ func NewRootIdentity(root_private_key crypto.PrivateKey) (*RootSecrets, error) {
 			CommonName: peer_hash,
 		},
 		Subject: pkix.Name{
-			CommonName: "H-OAEP-AES-256-" + peer_hash, //handshake encryption key, RSA OAEP + AES-256 encryption
+			CommonName: "H-" + peer_hash + "-OAEP-SHA3-256-AES-256-GCM", //handshake encryption key, RSA OAEP + AES-256 encryption
 		},
 		NotBefore:             time.Now().Add(time.Duration(-1) * time.Second), //1-sec backdate, for badly synced peers.
 		SerialNumber:          serialNumber,
@@ -131,8 +133,23 @@ func (r *RootSecrets) IDHash() string {
 	return r.root_id_hash
 }
 func (r *RootSecrets) DecryptHandshake(body []byte) ([]byte, error) {
-	res, err := rsa.DecryptOAEP(sha3.New256(), rand.Reader, r.handshake_priv_key, body, nil)
-	return res, err
+	key_block_size := r.handshake_priv_key.Size()
+	aes_key_nonce, err := rsa.DecryptOAEP(sha3.New256(), nil, r.handshake_priv_key, body[:key_block_size], nil)
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher(aes_key_nonce[:32])
+	if err != nil {
+		return nil, err
+	}
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := aesGCM.Open(nil, aes_key_nonce[32:], body[key_block_size:], nil)
+
+	return plaintext, err
 }
 func (r *RootSecrets) RootCertificate() string {
 	return r.root_self_cert
@@ -232,7 +249,7 @@ func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIde
 	if handshake_key_cert_x509.Issuer.CommonName != root_self_cert_x509.Issuer.CommonName {
 		return nil, errors.New("issuer mismatch")
 	}
-	if handshake_key_cert_x509.Subject.CommonName != "H-OAEP-AES-256-"+root_self_cert_x509.Issuer.CommonName {
+	if handshake_key_cert_x509.Subject.CommonName != "H-"+root_self_cert_x509.Issuer.CommonName+"-OAEP-SHA3-256-AES-256-GCM" {
 		return nil, errors.New("unsupported public key encryption scheme")
 	}
 	if err := handshake_key_cert_x509.CheckSignatureFrom(root_self_cert_x509); err != nil {
@@ -253,8 +270,29 @@ func (p *PeerIdentity) IDHash() string {
 	return p.root_id_hash
 }
 func (p *PeerIdentity) EncryptHandshake(payload []byte) ([]byte, error) {
-	res, err := rsa.EncryptOAEP(sha3.New256(), rand.Reader, p.handshake_pub_key, payload, nil)
-	return res, err
+	aesKey := make([]byte, 32) //AES-256 key
+	_, err := rand.Read(aesKey)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, 12) //AES-GCM nonce
+	_, err = rand.Read(nonce)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		return nil, err
+	}
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	encrypted_payload := aesGCM.Seal(nil, nonce, payload, nil)
+
+	encrypted_key_nonce, err := rsa.EncryptOAEP(sha3.New256(), rand.Reader, p.handshake_pub_key, append(aesKey, nonce...), nil)
+	return append(encrypted_key_nonce, encrypted_payload...), err
 }
 func (p *PeerIdentity) VerifyTLSBinding(abyss_bind_cert_der []byte, tls_cert *x509.Certificate) error {
 	abyss_bind_cert, err := x509.ParseCertificate(abyss_bind_cert_der)
@@ -272,5 +310,8 @@ func (p *PeerIdentity) VerifyTLSBinding(abyss_bind_cert_der []byte, tls_cert *x5
 	if abyss_bind_cert.Subject.CommonName != "T-"+p.root_self_cert_x509.Issuer.CommonName {
 		return errors.New("subject mismatch")
 	}
-	return errors.Join(errors.New("VerifyTLSBinding"), abyss_bind_cert.CheckSignatureFrom(p.root_self_cert_x509))
+	if err := abyss_bind_cert.CheckSignatureFrom(p.root_self_cert_x509); err != nil {
+		return errors.Join(errors.New("VerifyTLSBinding"), err)
+	}
+	return nil
 }
