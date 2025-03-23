@@ -78,7 +78,7 @@ func NewRootIdentity(root_private_key crypto.PrivateKey) (*RootSecrets, error) {
 			CommonName: peer_hash,
 		},
 		Subject: pkix.Name{
-			CommonName: "H-OAEP-SHA3-256-" + peer_hash, //handshake encryption key, RSA OAEP with SHA3-256 hash function.
+			CommonName: "H-OAEP-AES-256-" + peer_hash, //handshake encryption key, RSA OAEP + AES-256 encryption
 		},
 		NotBefore:             time.Now().Add(time.Duration(-1) * time.Second), //1-sec backdate, for badly synced peers.
 		SerialNumber:          serialNumber,
@@ -232,7 +232,7 @@ func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIde
 	if handshake_key_cert_x509.Issuer.CommonName != root_self_cert_x509.Issuer.CommonName {
 		return nil, errors.New("issuer mismatch")
 	}
-	if handshake_key_cert_x509.Subject.CommonName != "H-OAEP-SHA3-256-"+root_self_cert_x509.Issuer.CommonName {
+	if handshake_key_cert_x509.Subject.CommonName != "H-OAEP-AES-256-"+root_self_cert_x509.Issuer.CommonName {
 		return nil, errors.New("unsupported public key encryption scheme")
 	}
 	if err := handshake_key_cert_x509.CheckSignatureFrom(root_self_cert_x509); err != nil {
