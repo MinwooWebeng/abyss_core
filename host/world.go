@@ -39,8 +39,9 @@ func (w *World) RaisePeerRequest(peer_session abyss.ANDPeerSession) {
 func (w *World) RaisePeerReady(peer_session abyss.ANDPeerSession) {
 	w.eventChannel <- abyss.EWorldPeerReady{
 		Peer: &Peer{
-			world: w,
-			hash:  peer_session.Peer.IDHash(),
+			world:       w,
+			hash:        peer_session.Peer.IDHash(),
+			peerSession: peer_session,
 		},
 	}
 }

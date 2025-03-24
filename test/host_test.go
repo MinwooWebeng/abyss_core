@@ -327,3 +327,49 @@ func TestMoreHosts(t *testing.T) {
 	}
 	ctx_cancel()
 }
+
+func assert(statement bool) {
+	if !statement {
+		panic("assertion failure")
+	}
+}
+
+func TestObjectSharing(t *testing.T) {
+	_, privkey, _ := ed25519.GenerateKey(crypto_rand.Reader)
+	hostA, hostA_pathMap := abyss_host.NewBetaAbyssHost(&privkey)
+	_, privkey, _ = ed25519.GenerateKey(crypto_rand.Reader)
+	hostB, _ := abyss_host.NewBetaAbyssHost(&privkey)
+
+	go hostA.ListenAndServe(context.Background())
+	go hostB.ListenAndServe(context.Background())
+
+	hostA.NetworkService.AppendKnownPeer(hostB.NetworkService.LocalIdentity().RootCertificate(), hostB.NetworkService.LocalIdentity().HandshakeKeyCertificate())
+	hostB.NetworkService.AppendKnownPeer(hostA.NetworkService.LocalIdentity().RootCertificate(), hostA.NetworkService.LocalIdentity().HandshakeKeyCertificate())
+
+	A_world, _ := hostA.OpenWorld("http://a.world.com")
+	a_world_ch := A_world.GetEventChannel()
+	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
+
+	<-time.After(100 * time.Millisecond)
+	hostA.OpenOutboundConnection(hostB.GetLocalAbyssURL())
+
+	accept_end_ch := make(chan bool, 1)
+	go func() {
+		(<-a_world_ch).(abyss.EWorldPeerRequest).Accept()
+		accept_end_ch <- true
+	}()
+
+	join_url := hostA.GetLocalAbyssURL()
+	join_url.Path = "/home"
+	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), time.Second)
+	B_A_world, _ := hostB.JoinWorld(join_ctx, join_url)
+	join_ctx_cancel()
+	b_world_ch := B_A_world.GetEventChannel()
+
+	<-accept_end_ch
+	(<-b_world_ch).(abyss.EWorldPeerRequest).Accept()
+
+	(<-a_world_ch).(abyss.EWorldPeerReady).Peer.AppendObjects([]abyss.ObjectInfo{{ID: uuid.New(), Address: "carrot.aml"}})
+	assert((<-b_world_ch).(abyss.EWorldPeerReady).Peer != nil)
+	assert((<-b_world_ch).(abyss.EPeerObjectAppend).Objects[0].Address == "carrot.aml")
+}
