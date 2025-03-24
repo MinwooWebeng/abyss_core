@@ -17,8 +17,15 @@ type DummyAuth struct {
 	Name string
 }
 
-type SessionInfoText struct {
-	AURL      string
+type RawSessionInfoForDiscovery struct {
+	AURL                       string
+	SessionID                  string
+	RootCertificateDer         []byte
+	HandshakeKeyCertificateDer []byte
+}
+
+type RawSessionInfoForSNB struct {
+	PeerHash  string
 	SessionID string
 }
 
@@ -52,7 +59,7 @@ func (r *RawJN) TryParse() (*JN, error) {
 type RawJOK struct {
 	SenderSessionID string
 	RecverSessionID string
-	Neighbors       []SessionInfoText
+	Neighbors       []RawSessionInfoForDiscovery
 	Text            string
 }
 
@@ -65,16 +72,21 @@ func (r *RawJOK) TryParse() (*JOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	neig, ok := functional.Filter_strict_ok(r.Neighbors, func(i SessionInfoText) (abyss.ANDPeerSessionInfo, bool) {
+	neig, ok := functional.Filter_strict_ok(r.Neighbors, func(i RawSessionInfoForDiscovery) (abyss.ANDFullPeerSessionInfo, bool) {
 		abyss_url, err := aurl.ParseAURL(i.AURL)
 		if err != nil {
-			return abyss.ANDPeerSessionInfo{}, false
+			return abyss.ANDFullPeerSessionInfo{}, false
 		}
 		psid, err := uuid.Parse(i.SessionID)
 		if err != nil {
-			return abyss.ANDPeerSessionInfo{}, false
+			return abyss.ANDFullPeerSessionInfo{}, false
 		}
-		return abyss.ANDPeerSessionInfo{AURL: abyss_url, SessionID: psid}, true
+		return abyss.ANDFullPeerSessionInfo{
+			AURL:                       abyss_url,
+			SessionID:                  psid,
+			RootCertificateDer:         i.RootCertificateDer,
+			HandshakeKeyCertificateDer: i.HandshakeKeyCertificateDer,
+		}, true
 	})
 	if !ok {
 		return nil, errors.New("failed to parse session information")
@@ -99,7 +111,7 @@ func (r *RawJDN) TryParse() (*JDN, error) {
 type RawJNI struct {
 	SenderSessionID string
 	RecverSessionID string
-	Neighbor        SessionInfoText
+	Neighbor        RawSessionInfoForDiscovery
 }
 
 func (r *RawJNI) TryParse() (*JNI, error) {
@@ -120,7 +132,7 @@ func (r *RawJNI) TryParse() (*JNI, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &JNI{ssid, rsid, abyss.ANDPeerSessionInfo{AURL: abyss_url, SessionID: psid}}, nil
+	return &JNI{ssid, rsid, abyss.ANDFullPeerSessionInfo{AURL: abyss_url, SessionID: psid, RootCertificateDer: r.Neighbor.RootCertificateDer, HandshakeKeyCertificateDer: r.Neighbor.HandshakeKeyCertificateDer}}, nil
 }
 
 type RawMEM struct {
@@ -143,7 +155,7 @@ func (r *RawMEM) TryParse() (*MEM, error) {
 type RawSNB struct {
 	SenderSessionID string
 	RecverSessionID string
-	Hashes          []string
+	MemberInfos     []RawSessionInfoForSNB
 }
 
 func (r *RawSNB) TryParse() (*SNB, error) {
@@ -155,13 +167,24 @@ func (r *RawSNB) TryParse() (*SNB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SNB{ssid, rsid, r.Hashes}, nil
+	infos, _, err := functional.Filter_until_err(r.MemberInfos,
+		func(info_raw RawSessionInfoForSNB) (abyss.ANDPeerSessionInfo, error) {
+			id, err := uuid.Parse(info_raw.SessionID)
+			return abyss.ANDPeerSessionInfo{
+				PeerHash:  info_raw.PeerHash,
+				SessionID: id,
+			}, err
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &SNB{ssid, rsid, infos}, nil
 }
 
 type RawCRR struct {
 	SenderSessionID string
 	RecverSessionID string
-	Hashes          []string
+	MemberInfos     []RawSessionInfoForSNB
 }
 
 func (r *RawCRR) TryParse() (*CRR, error) {
@@ -173,7 +196,18 @@ func (r *RawCRR) TryParse() (*CRR, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &CRR{ssid, rsid, r.Hashes}, nil
+	infos, _, err := functional.Filter_until_err(r.MemberInfos,
+		func(info_raw RawSessionInfoForSNB) (abyss.ANDPeerSessionInfo, error) {
+			id, err := uuid.Parse(info_raw.SessionID)
+			return abyss.ANDPeerSessionInfo{
+				PeerHash:  info_raw.PeerHash,
+				SessionID: id,
+			}, err
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &CRR{ssid, rsid, infos}, nil
 }
 
 type RawRST struct {

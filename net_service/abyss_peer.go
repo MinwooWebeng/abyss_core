@@ -1,8 +1,6 @@
 package net_service
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 
 	"abyss_neighbor_discovery/ahmp"
@@ -12,23 +10,31 @@ import (
 )
 
 type AbyssPeer struct {
-	origin    *BetaNetService
-	peer_hash string
-	inbound   AbyssInbound
-	outbound  AbyssOutbound
+	origin   *BetaNetService
+	identity *PeerIdentity
+	inbound  AbyssInbound
+	outbound AbyssOutbound
 }
 
 func NewAbyssPeer(origin *BetaNetService, inbound AbyssInbound, outbound AbyssOutbound) *AbyssPeer {
 	result := new(AbyssPeer)
 	result.origin = origin
-	result.peer_hash = outbound.peer_hash
+	result.identity = outbound.peer_identity
 	result.inbound = inbound
 	result.outbound = outbound
 	return result
 }
 
 func (p *AbyssPeer) IDHash() string {
-	return p.peer_hash
+	return p.identity.root_id_hash
+}
+
+func (p *AbyssPeer) RootCertificateDer() []byte {
+	return p.identity.root_self_cert_der
+}
+
+func (p *AbyssPeer) HandshakeKeyCertificateDer() []byte {
+	return p.identity.handshake_key_cert_der
 }
 func (p *AbyssPeer) AURL() *aurl.AURL {
 	return &aurl.AURL{
@@ -44,13 +50,13 @@ func (p *AbyssPeer) AhmpCh() chan any {
 }
 
 func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
-	fmt.Println(struct {
-		t string
-		a any
-	}{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JN", a: ahmp.RawJN{
-		SenderSessionID: local_session_id.String(),
-		Text:            path,
-	}})
+	// fmt.Println(struct {
+	// 	t string
+	// 	a any
+	// }{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JN", a: ahmp.RawJN{
+	// 	SenderSessionID: local_session_id.String(),
+	// 	Text:            path,
+	// }})
 	if p.outbound.cbor_encoder.Encode(ahmp.JN_T) != nil {
 		return false
 	}
@@ -60,44 +66,46 @@ func (p *AbyssPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
 	}) == nil
 }
 func (p *AbyssPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {
-	fmt.Println(struct {
-		t string
-		a any
-	}{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JOK", a: ahmp.RawJOK{
-		SenderSessionID: local_session_id.String(),
-		RecverSessionID: peer_session_id.String(),
-		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSession) ahmp.SessionInfoText {
-			return ahmp.SessionInfoText{
-				AURL:      session.Peer.AURL().ToString(),
-				SessionID: session.PeerSessionID.String(),
-			}
-		}),
-		Text: world_url,
-	}})
+	// fmt.Println(struct {
+	// 	t string
+	// 	a any
+	// }{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JOK", a: ahmp.RawJOK{
+	// 	SenderSessionID: local_session_id.String(),
+	// 	RecverSessionID: peer_session_id.String(),
+	// 	Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSession) ahmp.SessionInfoText {
+	// 		return ahmp.SessionInfoText{
+	// 			AURL:      session.Peer.AURL().ToString(),
+	// 			SessionID: session.PeerSessionID.String(),
+	// 		}
+	// 	}),
+	// 	Text: world_url,
+	// }})
 	if p.outbound.cbor_encoder.Encode(ahmp.JOK_T) != nil {
 		return false
 	}
 	return p.outbound.cbor_encoder.Encode(ahmp.RawJOK{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
-		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSession) ahmp.SessionInfoText {
-			return ahmp.SessionInfoText{
-				AURL:      session.Peer.AURL().ToString(),
-				SessionID: session.PeerSessionID.String(),
+		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSession) ahmp.RawSessionInfoForDiscovery {
+			return ahmp.RawSessionInfoForDiscovery{
+				AURL:                       session.Peer.AURL().ToString(),
+				SessionID:                  session.PeerSessionID.String(),
+				RootCertificateDer:         session.Peer.RootCertificateDer(),
+				HandshakeKeyCertificateDer: session.Peer.HandshakeKeyCertificateDer(),
 			}
 		}),
 		Text: world_url,
 	}) == nil
 }
 func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool {
-	fmt.Println(struct {
-		t string
-		a any
-	}{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JDN", a: ahmp.RawJDN{
-		RecverSessionID: peer_session_id.String(),
-		Text:            message,
-		Code:            code,
-	}})
+	// fmt.Println(struct {
+	// 	t string
+	// 	a any
+	// }{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JDN", a: ahmp.RawJDN{
+	// 	RecverSessionID: peer_session_id.String(),
+	// 	Text:            message,
+	// 	Code:            code,
+	// }})
 	if p.outbound.cbor_encoder.Encode(ahmp.JDN_T) != nil {
 		return false
 	}
@@ -108,37 +116,39 @@ func (p *AbyssPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message stri
 	}) == nil
 }
 func (p *AbyssPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session abyss.ANDPeerSession) bool {
-	fmt.Println(struct {
-		t string
-		a any
-	}{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JNI", a: ahmp.RawJNI{
-		SenderSessionID: local_session_id.String(),
-		RecverSessionID: peer_session_id.String(),
-		Neighbor: ahmp.SessionInfoText{
-			AURL:      member_session.Peer.AURL().ToString(),
-			SessionID: member_session.PeerSessionID.String(),
-		},
-	}})
+	// fmt.Println(struct {
+	// 	t string
+	// 	a any
+	// }{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending JNI", a: ahmp.RawJNI{
+	// 	SenderSessionID: local_session_id.String(),
+	// 	RecverSessionID: peer_session_id.String(),
+	// 	Neighbor: ahmp.SessionInfoText{
+	// 		AURL:      member_session.Peer.AURL().ToString(),
+	// 		SessionID: member_session.PeerSessionID.String(),
+	// 	},
+	// }})
 	if p.outbound.cbor_encoder.Encode(ahmp.JNI_T) != nil {
 		return false
 	}
 	return p.outbound.cbor_encoder.Encode(ahmp.RawJNI{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
-		Neighbor: ahmp.SessionInfoText{
-			AURL:      member_session.Peer.AURL().ToString(),
-			SessionID: member_session.PeerSessionID.String(),
+		Neighbor: ahmp.RawSessionInfoForDiscovery{
+			AURL:                       member_session.Peer.AURL().ToString(),
+			SessionID:                  member_session.PeerSessionID.String(),
+			RootCertificateDer:         member_session.Peer.RootCertificateDer(),
+			HandshakeKeyCertificateDer: member_session.Peer.HandshakeKeyCertificateDer(),
 		},
 	}) == nil
 }
 func (p *AbyssPeer) TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
-	fmt.Println(struct {
-		t string
-		a any
-	}{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending MEM", a: ahmp.RawMEM{
-		SenderSessionID: local_session_id.String(),
-		RecverSessionID: peer_session_id.String(),
-	}})
+	// fmt.Println(struct {
+	// 	t string
+	// 	a any
+	// }{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending MEM", a: ahmp.RawMEM{
+	// 	SenderSessionID: local_session_id.String(),
+	// 	RecverSessionID: peer_session_id.String(),
+	// }})
 	if p.outbound.cbor_encoder.Encode(ahmp.MEM_T) != nil {
 		return false
 	}
@@ -154,6 +164,12 @@ func (p *AbyssPeer) TrySendSNB(local_session_id uuid.UUID, peer_session_id uuid.
 	return p.outbound.cbor_encoder.Encode(ahmp.RawSNB{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
+		MemberInfos: functional.Filter(member_sessions, func(i abyss.ANDPeerSessionInfo) ahmp.RawSessionInfoForSNB {
+			return ahmp.RawSessionInfoForSNB{
+				PeerHash:  i.PeerHash,
+				SessionID: i.SessionID.String(),
+			}
+		}),
 	}) == nil
 }
 func (p *AbyssPeer) TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
@@ -163,15 +179,21 @@ func (p *AbyssPeer) TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.
 	return p.outbound.cbor_encoder.Encode(ahmp.RawCRR{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
+		MemberInfos: functional.Filter(member_sessions, func(i abyss.ANDPeerSessionInfo) ahmp.RawSessionInfoForSNB {
+			return ahmp.RawSessionInfoForSNB{
+				PeerHash:  i.PeerHash,
+				SessionID: i.SessionID.String(),
+			}
+		}),
 	}) == nil
 }
 func (p *AbyssPeer) TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
-	fmt.Println(struct {
-		t string
-		a any
-	}{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending RST", a: ahmp.RawRST{
-		RecverSessionID: peer_session_id.String(),
-	}})
+	// fmt.Println(struct {
+	// 	t string
+	// 	a any
+	// }{t: p.origin.localIdentity.IDHash() + ">" + p.peer_hash + " sending RST", a: ahmp.RawRST{
+	// 	RecverSessionID: peer_session_id.String(),
+	// }})
 	if p.outbound.cbor_encoder.Encode(ahmp.RST_T) != nil {
 		return false
 	}

@@ -258,9 +258,9 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 			case *ahmp.MEM:
 				and_result = h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
 			case *ahmp.SNB:
-				and_result = h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
+				and_result = h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.MemberInfos)
 			case *ahmp.CRR:
-				and_result = h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
+				and_result = h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.MemberInfos)
 			case *ahmp.RST:
 				and_result = h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
 			case *ahmp.SOA:
@@ -385,6 +385,9 @@ func (h *AbyssHost) eventLoop() {
 						h.neighborDiscoveryAlgorithm.TimerExpire(target_local_session)
 					}
 				}()
+			case abyss.ANDPeerRegister:
+				certificates := e.Object.(*abyss.PeerCertificates)
+				h.NetworkService.AppendKnownPeerDer(certificates.RootCertDer, certificates.HandshakeKeyCertDer)
 			case abyss.ANDObjectAppend:
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]

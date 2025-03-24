@@ -223,6 +223,9 @@ type PeerIdentity struct {
 	root_self_cert_x509 *x509.Certificate
 	root_id_hash        string
 	handshake_pub_key   *rsa.PublicKey
+
+	root_self_cert_der     []byte
+	handshake_key_cert_der []byte
 }
 
 func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIdentity, error) {
@@ -263,6 +266,9 @@ func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIde
 		root_self_cert_x509: root_self_cert_x509,
 		root_id_hash:        peer_hash,
 		handshake_pub_key:   pkey,
+
+		root_self_cert_der:     root_self_cert,
+		handshake_key_cert_der: handshake_key_cert,
 	}, nil
 }
 

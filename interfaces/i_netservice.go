@@ -20,7 +20,7 @@ type AbystInboundSession struct {
 // 1. AbyssAsync 'always' succeeds, resulting in IANDPeer -> if connection failed, IANDPeer methods return error.
 // 2. Abyst may fail at any moment
 type INetworkService interface {
-	LocalIdentity() ILocalIdentity
+	LocalIdentity() IHostIdentity
 	LocalAURL() *aurl.AURL
 
 	HandlePreAccept(preaccept_handler IPreAccepter) // if false, return status code and message
@@ -28,6 +28,7 @@ type INetworkService interface {
 	ListenAndServe(ctx context.Context) error
 
 	AppendKnownPeer(root_cert string, handshake_key_cert string) error
+	AppendKnownPeerDer(root_cert []byte, handshake_key_cert []byte) error
 	RemoveKnownPeer(peer_hash string)
 
 	ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error

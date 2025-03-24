@@ -12,12 +12,22 @@ type ANDPeerSession struct {
 }
 
 type ANDPeerSessionInfo struct {
-	AURL      *aurl.AURL
+	PeerHash  string
 	SessionID uuid.UUID
+}
+
+type ANDFullPeerSessionInfo struct {
+	AURL                       *aurl.AURL
+	SessionID                  uuid.UUID
+	RootCertificateDer         []byte
+	HandshakeKeyCertificateDer []byte
 }
 
 type IANDPeer interface {
 	IDHash() string
+	RootCertificateDer() []byte
+	HandshakeKeyCertificateDer() []byte
+
 	AURL() *aurl.AURL
 
 	AhmpCh() chan any

@@ -146,7 +146,7 @@ func NewDefaultQuicConf() *quic.Config {
 	}
 }
 
-func (h *BetaNetService) LocalIdentity() abyss.ILocalIdentity {
+func (h *BetaNetService) LocalIdentity() abyss.IHostIdentity {
 	return h.localIdentity
 }
 func (h *BetaNetService) LocalAURL() *aurl.AURL {
@@ -216,10 +216,10 @@ func (h *BetaNetService) constructingAbyssPeers(ctx context.Context) {
 				continue
 			}
 
-			if inbound, ok := abyssInParts[outbound.peer_hash]; ok {
+			if inbound, ok := abyssInParts[outbound.peer_identity.root_id_hash]; ok {
 				h.abyssPeerCH <- NewAbyssPeer(h, inbound, outbound)
 			} else {
-				abyssOutParts[outbound.peer_hash] = outbound
+				abyssOutParts[outbound.peer_identity.root_id_hash] = outbound
 			}
 		}
 	}
@@ -232,7 +232,10 @@ func (h *BetaNetService) AppendKnownPeer(root_cert string, handshake_key_cert st
 		return errors.New("failed to parse peer certificates")
 	}
 
-	peer_identity, err := NewPeerIdentity(root_cert_block.Bytes, handshake_key_cert_block.Bytes)
+	return h.AppendKnownPeerDer(root_cert_block.Bytes, handshake_key_cert_block.Bytes)
+}
+func (h *BetaNetService) AppendKnownPeerDer(root_cert []byte, handshake_key_cert []byte) error {
+	peer_identity, err := NewPeerIdentity(root_cert, handshake_key_cert)
 	if err != nil {
 		return err
 	}
@@ -282,7 +285,7 @@ func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) 
 func (h *BetaNetService) _connectAbyss(ctx context.Context, addresses []*net.UDPAddr, peer_hash string) {
 	connection, err := h.quicTransport.Dial(ctx, addresses[0], h.tlsConf, h.quicConf)
 	if err != nil {
-		h.abyssOutBound <- AbyssOutbound{nil, peer_hash, nil, nil, err}
+		h.abyssOutBound <- AbyssOutbound{nil, nil, nil, nil, err}
 		return
 	}
 	h.PrepareAbyssOutbound(ctx, connection, peer_hash, addresses)

@@ -1,10 +1,6 @@
 package interfaces
 
-// type IRemoteIdentity interface {
-// 	IDHash() string
-// }
-
-type ILocalIdentity interface {
+type IHostIdentity interface {
 	IDHash() string
 	RootCertificate() string         //pem
 	HandshakeKeyCertificate() string //pem

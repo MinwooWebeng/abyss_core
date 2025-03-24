@@ -425,7 +425,7 @@ func (a *AND) JN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) 
 	}
 	return 0
 }
-func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, world_url string, member_sessions []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
+func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, world_url string, member_infos []abyss.ANDFullPeerSessionInfo) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -469,14 +469,14 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	}
 
 	//handle non-connected/MEM not received members
-	for _, member_session := range member_sessions {
-		if _, ok := world.pre_members[member_session.AURL.Hash]; ok {
+	for _, member_info := range member_infos {
+		if _, ok := world.pre_members[member_info.AURL.Hash]; ok {
 			continue
 		}
-		if peer, ok := a.peers[member_session.AURL.Hash]; ok {
+		if peer, ok := a.peers[member_info.AURL.Hash]; ok {
 			//connected, MEM not received
-			peer_session := abyss.ANDPeerSession{Peer: peer, PeerSessionID: member_session.SessionID}
-			world.pre_members[member_session.AURL.Hash] = PreMemSession{
+			peer_session := abyss.ANDPeerSession{Peer: peer, PeerSessionID: member_info.SessionID}
+			world.pre_members[member_info.AURL.Hash] = PreMemSession{
 				state:          PRE_MEM_CONNECTED,
 				ANDPeerSession: peer_session,
 			}
@@ -487,10 +487,17 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 			}
 		} else {
 			//non-connected
-			world.pre_conn_members[member_session.AURL.Hash] = member_session.SessionID
+			world.pre_conn_members[member_info.AURL.Hash] = member_info.SessionID
+			a.eventCh <- abyss.NeighborEvent{
+				Type: abyss.ANDPeerRegister,
+				Object: &abyss.PeerCertificates{
+					RootCertDer:         member_info.RootCertificateDer,
+					HandshakeKeyCertDer: member_info.HandshakeKeyCertificateDer,
+				},
+			}
 			a.eventCh <- abyss.NeighborEvent{
 				Type:   abyss.ANDConnectRequest,
-				Object: member_session.AURL,
+				Object: member_info.AURL,
 			}
 		}
 	}
@@ -518,7 +525,7 @@ func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, mes
 	}
 	return 0
 }
-func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_info abyss.ANDPeerSessionInfo) abyss.ANDERROR {
+func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_info abyss.ANDFullPeerSessionInfo) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -558,6 +565,13 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	}
 
 	world.pre_conn_members[member_info.AURL.Hash] = member_info.SessionID
+	a.eventCh <- abyss.NeighborEvent{
+		Type: abyss.ANDPeerRegister,
+		Object: &abyss.PeerCertificates{
+			RootCertDer:         member_info.RootCertificateDer,
+			HandshakeKeyCertDer: member_info.HandshakeKeyCertificateDer,
+		},
+	}
 	a.eventCh <- abyss.NeighborEvent{
 		Type:   abyss.ANDConnectRequest,
 		Object: member_info.AURL,
@@ -664,13 +678,13 @@ func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 }
 
 // TODO
-func (a *AND) SNB(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_hashes []string) abyss.ANDERROR {
+func (a *AND) SNB(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
 	return 0
 }
-func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_hashes []string) abyss.ANDERROR {
+func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 

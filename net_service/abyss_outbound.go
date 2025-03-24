@@ -11,15 +11,15 @@ import (
 )
 
 type AbyssOutbound struct {
-	connection   quic.Connection
-	peer_hash    string
-	addresses    []*net.UDPAddr
-	cbor_encoder *cbor.Encoder
-	err          error
+	connection    quic.Connection
+	peer_identity *PeerIdentity
+	addresses     []*net.UDPAddr
+	cbor_encoder  *cbor.Encoder
+	err           error
 }
 
 func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection quic.Connection, peer_hash string, addresses []*net.UDPAddr) {
-	result := AbyssOutbound{connection, peer_hash, nil, nil, errors.New("unknown error")}
+	result := AbyssOutbound{connection, nil, nil, nil, errors.New("unknown error")}
 	defer func() {
 		h.abyssOutBound <- result
 	}()
@@ -67,5 +67,5 @@ func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection qu
 		return
 	}
 
-	result = AbyssOutbound{connection, peer_hash, addresses, ahmp_cbor_enc, nil}
+	result = AbyssOutbound{connection, known_identity, addresses, ahmp_cbor_enc, nil}
 }

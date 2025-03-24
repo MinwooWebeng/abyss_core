@@ -13,7 +13,7 @@ type JN struct {
 type JOK struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
-	Neighbors       []abyss.ANDPeerSessionInfo
+	Neighbors       []abyss.ANDFullPeerSessionInfo
 	Text            string
 }
 type JDN struct {
@@ -24,7 +24,7 @@ type JDN struct {
 type JNI struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
-	Neighbor        abyss.ANDPeerSessionInfo
+	Neighbor        abyss.ANDFullPeerSessionInfo
 }
 type MEM struct {
 	SenderSessionID uuid.UUID
@@ -33,12 +33,12 @@ type MEM struct {
 type SNB struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
-	Hashes          []string
+	MemberInfos     []abyss.ANDPeerSessionInfo
 }
 type CRR struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
-	Hashes          []string
+	MemberInfos     []abyss.ANDPeerSessionInfo
 }
 type RST struct {
 	SenderSessionID uuid.UUID //may nil.
