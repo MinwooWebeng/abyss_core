@@ -373,3 +373,80 @@ func TestObjectSharing(t *testing.T) {
 	assert((<-b_world_ch).(abyss.EWorldPeerReady).Peer != nil)
 	assert((<-b_world_ch).(abyss.EPeerObjectAppend).Objects[0].Address == "carrot.aml")
 }
+
+func TestKnownPeerUpdate(t *testing.T) {
+	_, A_privkey, _ := ed25519.GenerateKey(crypto_rand.Reader)
+	_, B_privkey, _ := ed25519.GenerateKey(crypto_rand.Reader)
+	_, C_privkey, _ := ed25519.GenerateKey(crypto_rand.Reader)
+
+	A_host, _ := abyss_host.NewBetaAbyssHost(&A_privkey)
+	B_host, B_pathmap := abyss_host.NewBetaAbyssHost(&B_privkey)
+	C_host, _ := abyss_host.NewBetaAbyssHost(&C_privkey)
+
+	go A_host.ListenAndServe(context.Background())
+	go B_host.ListenAndServe(context.Background())
+	go C_host.ListenAndServe(context.Background())
+
+	A_host.NetworkService.AppendKnownPeer(
+		B_host.NetworkService.LocalIdentity().RootCertificate(),
+		B_host.NetworkService.LocalIdentity().HandshakeKeyCertificate(),
+	)
+
+	B_host.NetworkService.AppendKnownPeer(
+		A_host.NetworkService.LocalIdentity().RootCertificate(),
+		A_host.NetworkService.LocalIdentity().HandshakeKeyCertificate(),
+	)
+	B_host.NetworkService.AppendKnownPeer(
+		C_host.NetworkService.LocalIdentity().RootCertificate(),
+		C_host.NetworkService.LocalIdentity().HandshakeKeyCertificate(),
+	)
+
+	C_host.NetworkService.AppendKnownPeer(
+		B_host.NetworkService.LocalIdentity().RootCertificate(),
+		B_host.NetworkService.LocalIdentity().HandshakeKeyCertificate(),
+	)
+
+	B_world, _ := B_host.OpenWorld("http://b.world.com")
+	B_pathmap.SetMapping("/home", B_world.SessionID())
+	world_aurl := B_host.GetLocalAbyssURL()
+	world_aurl.Path = "/home"
+
+	B_host.OpenOutboundConnection(A_host.GetLocalAbyssURL())
+	B_host.OpenOutboundConnection(C_host.GetLocalAbyssURL())
+
+	wait_for_A_join := make(chan bool)
+	wait_for_A_C_discovery := make(chan bool, 2)
+	go func() {
+		world, _ := A_host.JoinWorld(context.Background(), world_aurl)
+		ev_ch := world.GetEventChannel()
+		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == B_host.GetLocalAbyssURL().Hash)
+
+		wait_for_A_join <- true
+
+		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == C_host.GetLocalAbyssURL().Hash)
+
+		wait_for_A_C_discovery <- true
+	}()
+	go func() {
+		<-wait_for_A_join
+
+		world, _ := C_host.JoinWorld(context.Background(), world_aurl)
+		ev_ch := world.GetEventChannel()
+		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == B_host.GetLocalAbyssURL().Hash)
+		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == A_host.GetLocalAbyssURL().Hash)
+
+		wait_for_A_C_discovery <- true
+	}()
+	ev_ch := B_world.GetEventChannel()
+	(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
+	assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == A_host.GetLocalAbyssURL().Hash)
+	(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
+	assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == C_host.GetLocalAbyssURL().Hash)
+
+	<-wait_for_A_C_discovery
+	<-wait_for_A_C_discovery
+}
