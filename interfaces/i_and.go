@@ -17,6 +17,8 @@ const (
 	ANDWorldLeave //called after WorldLeave
 	ANDConnectRequest
 	ANDTimerRequest
+	ANDObjectAppend
+	ANDObjectDelete
 	ANDNeighborEventDebug
 )
 
@@ -61,4 +63,7 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 	SNB(local_session_id uuid.UUID, peer_session ANDPeerSession, member_hashes []string) ANDERROR
 	CRR(local_session_id uuid.UUID, peer_session ANDPeerSession, member_hashes []string) ANDERROR
 	RST(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
+
+	SOA(local_session_id uuid.UUID, peer_session ANDPeerSession, objects []ObjectInfo) ANDERROR
+	SOD(local_session_id uuid.UUID, peer_session ANDPeerSession, objectIDs []uuid.UUID) ANDERROR
 }

@@ -263,6 +263,10 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 				and_result = h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Hashes)
 			case *ahmp.RST:
 				and_result = h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+			case *ahmp.SOA:
+				and_result = h.neighborDiscoveryAlgorithm.SOA(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Objects)
+			case *ahmp.SOD:
+				and_result = h.neighborDiscoveryAlgorithm.SOD(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.ObjectIDs)
 			default:
 				panic("unknown ahmp message type")
 			}
@@ -381,6 +385,28 @@ func (h *AbyssHost) eventLoop() {
 						h.neighborDiscoveryAlgorithm.TimerExpire(target_local_session)
 					}
 				}()
+			case abyss.ANDObjectAppend:
+				h.worlds_mtx.Lock()
+				world, ok := h.worlds[e.LocalSessionID]
+				h.worlds_mtx.Unlock()
+
+				if !ok {
+					panic("world not found")
+				}
+
+				world.RaiseObjectAppend(e.Peer.IDHash(), e.Object.([]abyss.ObjectInfo))
+
+			case abyss.ANDObjectDelete:
+				h.worlds_mtx.Lock()
+				world, ok := h.worlds[e.LocalSessionID]
+				h.worlds_mtx.Unlock()
+
+				if !ok {
+					panic("world not found")
+				}
+
+				world.RaiseObjectDelete(e.Peer.IDHash(), e.Object.([]uuid.UUID))
+
 			case abyss.ANDNeighborEventDebug:
 				//fmt.Println("event ::: abyss.ANDNeighborEventDebug")
 				fmt.Println(time.Now().Format("00:00:00.000") + " " + e.Text)

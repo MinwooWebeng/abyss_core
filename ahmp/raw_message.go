@@ -193,10 +193,14 @@ func (r *RawRST) TryParse() (*RST, error) {
 	return &RST{ssid, rsid}, nil
 }
 
+type RawObjectInfo struct {
+	ID      string
+	Address string
+}
 type RawSOA struct {
 	SenderSessionID string
 	RecverSessionID string
-	//TODO
+	Objects         []RawObjectInfo
 }
 
 func (r *RawSOA) TryParse() (*SOA, error) {
@@ -208,13 +212,24 @@ func (r *RawSOA) TryParse() (*SOA, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SOA{ssid, rsid}, nil
+	objects, _, err := functional.Filter_until_err(r.Objects,
+		func(object_raw RawObjectInfo) (abyss.ObjectInfo, error) {
+			oid, err := uuid.Parse(object_raw.ID)
+			return abyss.ObjectInfo{
+				ID:      oid,
+				Address: object_raw.Address,
+			}, err
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &SOA{ssid, rsid, objects}, nil
 }
 
 type RawSOD struct {
 	SenderSessionID string
 	RecverSessionID string
-	//TODO
+	ObjectIDs       []string
 }
 
 func (r *RawSOD) TryParse() (*SOD, error) {
@@ -226,5 +241,13 @@ func (r *RawSOD) TryParse() (*SOD, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SOD{ssid, rsid}, nil
+	oids, _, err := functional.Filter_until_err(r.ObjectIDs,
+		func(oid_raw string) (uuid.UUID, error) {
+			oid, err := uuid.Parse(oid_raw)
+			return oid, err
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &SOD{ssid, rsid, oids}, nil
 }

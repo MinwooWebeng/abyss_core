@@ -48,10 +48,10 @@ type RST struct {
 type SOA struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
-	//TODO
+	Objects         []abyss.ObjectInfo
 }
 type SOD struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
-	//TODO
+	ObjectIDs       []uuid.UUID
 }

@@ -720,6 +720,49 @@ func (a *AND) RST(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 	return 0
 }
 
+func (a *AND) SOA(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, objects []abyss.ObjectInfo) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
+	//filter out invalid messages
+	if world, ok := a.worlds[local_session_id]; ok {
+		if member, ok := world.members[peer_session.Peer.IDHash()]; ok {
+			if member.PeerSessionID == peer_session.PeerSessionID {
+				a.eventCh <- abyss.NeighborEvent{
+					Type:           abyss.ANDObjectAppend,
+					LocalSessionID: local_session_id,
+					ANDPeerSession: peer_session,
+					Object:         objects,
+				}
+				return 0
+			}
+		}
+	}
+
+	return abyss.EINVAL
+}
+func (a *AND) SOD(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, objectIDs []uuid.UUID) abyss.ANDERROR {
+	a.api_mtx.Lock()
+	defer a.api_mtx.Unlock()
+
+	//filter out invalid messages
+	if world, ok := a.worlds[local_session_id]; ok {
+		if member, ok := world.members[peer_session.Peer.IDHash()]; ok {
+			if member.PeerSessionID == peer_session.PeerSessionID {
+				a.eventCh <- abyss.NeighborEvent{
+					Type:           abyss.ANDObjectDelete,
+					LocalSessionID: local_session_id,
+					ANDPeerSession: peer_session,
+					Object:         objectIDs,
+				}
+				return 0
+			}
+		}
+	}
+
+	return abyss.EINVAL
+}
+
 func (a *AND) resetOptDrop(peer abyss.IANDPeer, local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
 	if !peer.TrySendRST(local_session_id, peer_session_id) {
 		a.dropPeer(peer)
