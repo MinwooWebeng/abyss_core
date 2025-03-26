@@ -21,7 +21,7 @@ import (
 )
 
 type RootSecrets struct {
-	root_priv_key       crypto.PrivateKey
+	root_priv_key       PrivateKey
 	root_self_cert_x509 *x509.Certificate
 	root_self_cert      string //pem
 	root_id_hash        string
@@ -30,9 +30,13 @@ type RootSecrets struct {
 	handshake_key_cert string          //pem
 }
 
+type PrivateKey interface { //stupid but handy interface, golang should change crypto.PrivateKey interface
+	Public() crypto.PublicKey
+}
+
 // To generate root key, use ed25519.GenerateKey(rand.Reader)
-func NewRootIdentity(root_private_key crypto.PrivateKey) (*RootSecrets, error) {
-	root_public_key := root_private_key.(*ed25519.PrivateKey).Public()
+func NewRootIdentity(root_private_key PrivateKey) (*RootSecrets, error) {
+	root_public_key := root_private_key.Public()
 
 	//root certificate
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128) // 2^128

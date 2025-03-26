@@ -35,7 +35,7 @@ type AbyssHost struct {
 
 	NetworkService             abyss.INetworkService
 	neighborDiscoveryAlgorithm abyss.INeighborDiscovery
-	PathResolver               abyss.IPathResolver
+	pathResolver               abyss.IPathResolver
 
 	abystClientTr *http3.Transport
 
@@ -52,7 +52,7 @@ func NewAbyssHost(netServ abyss.INetworkService, nda abyss.INeighborDiscovery, p
 		event_done:                 make(chan bool, 1),
 		NetworkService:             netServ,
 		neighborDiscoveryAlgorithm: nda,
-		PathResolver:               path_resolver,
+		pathResolver:               path_resolver,
 		abystClientTr: &http3.Transport{
 			Dial: func(ctx context.Context, addr string, tlsCfg *tls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
 				return nil, errors.New("dialing in abyst transport is prohibited")
@@ -244,7 +244,7 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 
 			switch message := message_any.(type) {
 			case *ahmp.JN:
-				local_session_id, ok := h.PathResolver.PathToSessionID(message.Text, peer.IDHash())
+				local_session_id, ok := h.pathResolver.PathToSessionID(message.Text, peer.IDHash())
 				if !ok {
 					continue // TODO: respond with proper error code
 				}

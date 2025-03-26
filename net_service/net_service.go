@@ -2,7 +2,6 @@ package net_service
 
 import (
 	"context"
-	"crypto"
 	"crypto/tls"
 	"encoding/pem"
 	"errors"
@@ -59,7 +58,7 @@ func _getLocalIP() (string, error) {
 	return localAddr.IP.String(), nil
 }
 
-func NewBetaNetService(local_private_key crypto.PrivateKey, address_selector abyss.IAddressSelector) (*BetaNetService, error) {
+func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAddressSelector) (*BetaNetService, error) {
 	result := new(BetaNetService)
 
 	root_secret, err := NewRootIdentity(local_private_key)

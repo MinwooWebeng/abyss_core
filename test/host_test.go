@@ -208,7 +208,7 @@ func (g *GlobalWorldRegistry) RequestRandom(local_aurl string) (string, bool) {
 type AutonomousHost struct {
 	global_join_targets *GlobalWorldRegistry
 	abyss_host          *abyss_host.AbyssHost
-	abyss_pathMap       *abyss_host.DefaultPathResolver
+	abyss_pathMap       *abyss_host.SimplePathResolver
 	log_prefix          string
 }
 

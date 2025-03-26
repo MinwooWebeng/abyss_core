@@ -6,31 +6,31 @@ import (
 	"github.com/google/uuid"
 )
 
-type DefaultPathResolver struct {
+type SimplePathResolver struct {
 	pathMap map[string]uuid.UUID
 	mtx     *sync.Mutex
 }
 
-func NewDefaultPathResolver() *DefaultPathResolver {
-	return &DefaultPathResolver{
+func NewSimplePathResolver() *SimplePathResolver {
+	return &SimplePathResolver{
 		pathMap: make(map[string]uuid.UUID),
 		mtx:     new(sync.Mutex),
 	}
 }
 
-func (r *DefaultPathResolver) SetMapping(path string, dest uuid.UUID) {
+func (r *SimplePathResolver) SetMapping(path string, dest uuid.UUID) {
 	r.mtx.Lock()
 	r.pathMap[path] = dest
 	r.mtx.Unlock()
 }
 
-func (r *DefaultPathResolver) DeleteMapping(path string) {
+func (r *SimplePathResolver) DeleteMapping(path string) {
 	r.mtx.Lock()
 	delete(r.pathMap, path)
 	r.mtx.Unlock()
 }
 
-func (r *DefaultPathResolver) PathToSessionID(path string, _ string) (uuid.UUID, bool) {
+func (r *SimplePathResolver) PathToSessionID(path string, _ string) (uuid.UUID, bool) {
 	r.mtx.Lock()
 	res, ok := r.pathMap[path]
 	r.mtx.Unlock()
