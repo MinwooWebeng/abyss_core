@@ -43,7 +43,12 @@ var error_queue chan error
 
 //export PopErrorQueue
 func PopErrorQueue() C.uintptr_t {
-	return C.uintptr_t(cgo.NewHandle(<-error_queue))
+	select {
+	case err := <-error_queue:
+		return C.uintptr_t(cgo.NewHandle(err))
+	default:
+		return C.uintptr_t(cgo.NewHandle(errors.New("no error")))
+	}
 }
 
 //export GetErrorBodyLength
@@ -267,21 +272,12 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.char) C.uintptr_t {
 		return C.uintptr_t(cgo.NewHandle(&event))
 	case abyss.EWorldTerminate:
 		*event_type_out = 6
-		return C.uintptr_t(cgo.NewHandle(&event))
+		return 0
 	default:
 		error_queue <- errors.New("internal fault")
+		*event_type_out = -1
 		return 0
 	}
-}
-
-//export WorldPeerRequest_GetHash
-func WorldPeerRequest_GetHash(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
-	event, ok := cgo.Handle(h).Value().(*abyss.EWorldPeerRequest)
-	if !ok {
-		return INVALID_HANDLE
-	}
-
-	return TryMarshalBytes(buf, buflen, []byte(event.PeerHash))
 }
 
 //export WorldPeerRequest_Accept
@@ -383,6 +379,16 @@ func WorldPeer_DeleteObjects(h C.uintptr_t, json_ptr *C.char, json_len C.int) C.
 
 	peer.DeleteObjects(res)
 	return 0
+}
+
+//export WorldPeerLeave_GetHash
+func WorldPeerLeave_GetHash(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+	event, ok := cgo.Handle(h).Value().(*abyss.EWorldPeerLeave)
+	if !ok {
+		return INVALID_HANDLE
+	}
+
+	return TryMarshalBytes(buf, buflen, []byte(event.PeerHash))
 }
 
 type AbystClientExport struct {
