@@ -78,7 +78,7 @@ extern __declspec(dllexport) int GetVersion(char* buf, int buflen);
 extern __declspec(dllexport) uintptr_t PopErrorQueue();
 extern __declspec(dllexport) int GetErrorBodyLength(uintptr_t h_error);
 extern __declspec(dllexport) int GetErrorBody(uintptr_t h_error, char* buf, int buflen);
-extern __declspec(dllexport) void CloseHandle(uintptr_t handle);
+extern __declspec(dllexport) void CloseAbyssHandle(uintptr_t handle);
 extern __declspec(dllexport) uintptr_t NewSimplePathResolver();
 extern __declspec(dllexport) int SimplePathResolver_SetMapping(uintptr_t h, char* path_ptr, int path_len, char* world_ID_out);
 extern __declspec(dllexport) int SimplePathResolver_DeleteMapping(uintptr_t h, char* path_ptr, int path_len);

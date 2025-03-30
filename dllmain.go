@@ -67,8 +67,8 @@ type IDestructable interface {
 	Destuct()
 }
 
-//export CloseHandle
-func CloseHandle(handle C.uintptr_t) {
+//export CloseAbyssHandle
+func CloseAbyssHandle(handle C.uintptr_t) {
 	inner := cgo.Handle(handle).Value()
 	if inner_decon, ok := inner.(IDestructable); ok {
 		inner_decon.Destuct()
@@ -82,13 +82,13 @@ func NewSimplePathResolver() C.uintptr_t {
 }
 
 //export SimplePathResolver_SetMapping
-func SimplePathResolver_SetMapping(h C.uintptr_t, path_ptr *C.char, path_len C.int, world_ID_out *C.char) C.int {
+func SimplePathResolver_SetMapping(h C.uintptr_t, path_ptr *C.char, path_len C.int, world_ID *C.char) C.int {
 	path_resolver, ok := cgo.Handle(h).Value().(*abyss_host.SimplePathResolver)
 	if !ok {
 		return INVALID_HANDLE
 	}
 	var world_uuid uuid.UUID
-	data := UnmarshalBytes(world_ID_out, 16)
+	data := UnmarshalBytes(world_ID, 16)
 	copy(world_uuid[:], data)
 	path_resolver.SetMapping(string(UnmarshalBytes(path_ptr, path_len)), world_uuid)
 	return 0
@@ -480,6 +480,5 @@ func AbystResponse_ReadBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 //TODO: enable some external binding for abyst server. we may expect all abyst local hosts are just available some elsewhere. enable forwarding
 
 func main() {
-	//TODO: debug log initialization
 	error_queue = make(chan error, 32)
 }
