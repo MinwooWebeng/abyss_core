@@ -26,6 +26,6 @@ func DebugLog(content string) {
 	if err != nil {
 		return
 	}
-	file.WriteString(time.Now().Format("00:00:00.000000") + " " + content)
+	file.WriteString(time.Now().Format("2006-01-02 15:04:05.999999 -0700 MST") + " " + content + "\n")
 	file.Close()
 }

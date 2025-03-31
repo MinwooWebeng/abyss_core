@@ -250,8 +250,8 @@ func (r *RawSOA) TryParse() (*SOA, error) {
 		func(object_raw RawObjectInfo) (abyss.ObjectInfo, error) {
 			oid, err := uuid.Parse(object_raw.ID)
 			return abyss.ObjectInfo{
-				ID:      oid,
-				Address: object_raw.Address,
+				ID:   oid,
+				Addr: object_raw.Address,
 			}, err
 		})
 	if err != nil {

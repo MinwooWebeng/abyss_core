@@ -67,7 +67,7 @@ func printWorldEvents(time_begin time.Time, prefix string, host abyss.IAbyssHost
 				//event.Peer.AppendObjects([]abyss.ObjectInfo{abyss.ObjectInfo{ID: uuid.New(), Address: "https://abyssal.com/cat.obj"}})
 			case abyss.EPeerObjectAppend:
 				fmt.Println(_time_passed(time_begin) + prefix + " " + event.PeerHash + " appended" + functional.Accum_all(event.Objects, "", func(obj abyss.ObjectInfo, accum string) string {
-					return accum + " " + obj.ID.String() + "|" + obj.Address
+					return accum + " " + obj.ID.String() + "|" + obj.Addr
 				}))
 			case abyss.EPeerObjectDelete:
 				fmt.Println(_time_passed(time_begin) + prefix + " " + event.PeerHash + " deleted" + functional.Accum_all(event.ObjectIDs, "", func(obj uuid.UUID, accum string) string { return accum + " " + obj.String() }))
@@ -369,9 +369,9 @@ func TestObjectSharing(t *testing.T) {
 	<-accept_end_ch
 	(<-b_world_ch).(abyss.EWorldPeerRequest).Accept()
 
-	(<-a_world_ch).(abyss.EWorldPeerReady).Peer.AppendObjects([]abyss.ObjectInfo{{ID: uuid.New(), Address: "carrot.aml"}})
+	(<-a_world_ch).(abyss.EWorldPeerReady).Peer.AppendObjects([]abyss.ObjectInfo{{ID: uuid.New(), Addr: "carrot.aml"}})
 	assert((<-b_world_ch).(abyss.EWorldPeerReady).Peer != nil)
-	assert((<-b_world_ch).(abyss.EPeerObjectAppend).Objects[0].Address == "carrot.aml")
+	assert((<-b_world_ch).(abyss.EPeerObjectAppend).Objects[0].Addr == "carrot.aml")
 }
 
 func TestKnownPeerUpdate(t *testing.T) {

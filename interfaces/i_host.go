@@ -13,8 +13,8 @@ type IPathResolver interface {
 }
 
 type ObjectInfo struct {
-	ID      uuid.UUID
-	Address string
+	ID   uuid.UUID
+	Addr string
 }
 
 type IAbyssPeer interface {
