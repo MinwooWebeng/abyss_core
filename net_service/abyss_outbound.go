@@ -36,7 +36,7 @@ func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection qu
 	ahmp_cbor_enc := cbor.NewEncoder(ahmp_stream)
 	ahmp_cbor_dec := cbor.NewDecoder(ahmp_stream)
 
-	known_identity, ok := h.findKnownPeer(peer_hash)
+	known_identity, ok := h.findKnownPeer(peer_hash) //TODO: change to waitForPeerIdentity
 	if !ok {
 		result.err = errors.New("unknown peer")
 		return

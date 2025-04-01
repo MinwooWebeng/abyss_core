@@ -259,6 +259,13 @@ func (h *BetaNetService) findKnownPeer(peer_hash string) (*PeerIdentity, bool) {
 	return res, ok
 }
 
+// func (h *BetaNetService) waitForPeerIdentity(ctx context.Context, peer_hash string) (*PeerIdentity, error) {
+// 	select {
+// 	case <-ctx.Done():
+// 		return nil, ctx.Err()
+// 	}
+// }
+
 func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error {
 	if url.Scheme != "abyss" {
 		return errors.New("url scheme mismatch")

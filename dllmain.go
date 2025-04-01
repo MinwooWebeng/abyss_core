@@ -308,14 +308,27 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 		return C.uintptr_t(cgo.NewHandle(event.Peer))
 	case abyss.EPeerObjectAppend:
 		*event_type_out = 3
-		data, _ := json.Marshal(event.Objects)
+		data, _ := json.Marshal(functional.Filter(event.Objects, func(i abyss.ObjectInfo) struct {
+			ID   string
+			Addr string
+		} {
+			return struct {
+				ID   string
+				Addr string
+			}{
+				ID:   hex.EncodeToString(i.ID[:]),
+				Addr: i.Addr,
+			}
+		}))
 		return C.uintptr_t(cgo.NewHandle(&ObjectAppendData{
 			peer_hash: event.PeerHash,
 			body_json: string(data),
 		}))
 	case abyss.EPeerObjectDelete:
 		*event_type_out = 4
-		data, _ := json.Marshal(event.ObjectIDs)
+		data, _ := json.Marshal(functional.Filter(event.ObjectIDs, func(u uuid.UUID) string {
+			return hex.EncodeToString(u[:])
+		}))
 		return C.uintptr_t(cgo.NewHandle(&ObjectDeleteData{
 			peer_hash: event.PeerHash,
 			body_json: string(data),
@@ -331,6 +344,16 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 		*event_type_out = -1
 		return 0
 	}
+}
+
+//export WorldPeerRequest_GetHash
+func WorldPeerRequest_GetHash(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+	event, ok := cgo.Handle(h).Value().(*abyss.EWorldPeerRequest)
+	if !ok {
+		return INVALID_HANDLE
+	}
+
+	return TryMarshalBytes(buf, buflen, []byte(event.PeerHash))
 }
 
 //export WorldPeerRequest_Accept
@@ -468,7 +491,7 @@ func WorldPeerObjectDelete_GetHead(h C.uintptr_t, peer_hash_out *C.char, body_le
 
 //export WorldPeerObjectDelete_GetBody
 func WorldPeerObjectDelete_GetBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
-	data, ok := cgo.Handle(h).Value().(*ObjectAppendData)
+	data, ok := cgo.Handle(h).Value().(*ObjectDeleteData)
 	if !ok {
 		return INVALID_HANDLE
 	}

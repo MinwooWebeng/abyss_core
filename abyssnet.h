@@ -91,10 +91,8 @@ extern __declspec(dllexport) int Host_OpenOutboundConnection(uintptr_t h, char* 
 extern __declspec(dllexport) uintptr_t Host_OpenWorld(uintptr_t h, char* url_ptr, int url_len);
 extern __declspec(dllexport) uintptr_t Host_JoinWorld(uintptr_t h, char* url_ptr, int url_len, int timeout_ms);
 extern __declspec(dllexport) int World_GetSessionID(uintptr_t h, char* world_ID_out);
-
-// TODO: change this to full json interfaces.
-//
 extern __declspec(dllexport) uintptr_t World_WaitEvent(uintptr_t h, int* event_type_out);
+extern __declspec(dllexport) int WorldPeerRequest_GetHash(uintptr_t h, char* buf, int buflen);
 extern __declspec(dllexport) int WorldPeerRequest_Accept(uintptr_t h);
 extern __declspec(dllexport) int WorldPeerRequest_Decline(uintptr_t h, int code, char* msg, int msglen);
 extern __declspec(dllexport) int WorldPeer_GetHash(uintptr_t h, char* buf, int buflen);

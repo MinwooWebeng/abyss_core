@@ -63,7 +63,7 @@ func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection qui
 	}
 
 	//retrieve known identity and verify
-	known_identity, ok := h.findKnownPeer(peer_hash)
+	known_identity, ok := h.findKnownPeer(peer_hash) //TODO: change to waitForPeerIdentity
 	if !ok {
 		result.err = errors.New("unknown peer")
 		return
