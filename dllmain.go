@@ -40,9 +40,16 @@ func GetVersion(buf *C.char, buflen C.int) C.int {
 
 var error_queue chan error
 
+func raiseError(err error) {
+	select {
+	case error_queue <- err:
+	default:
+	}
+}
+
 //export Init
 func Init() C.int {
-	error_queue = make(chan error, 32)
+	error_queue = make(chan error, 1)
 	return 0
 }
 
@@ -115,24 +122,24 @@ func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_
 
 	root_priv_key, err := ssh.ParseRawPrivateKey(root_priv_key_pem)
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 	root_priv_key_casted, ok := root_priv_key.(abyss_net.PrivateKey)
 	if !ok {
-		error_queue <- errors.New("unsupported private key type")
+		raiseError(errors.New("unsupported private key type"))
 		return 0
 	}
 
 	path_resolver, ok := cgo.Handle(h_path_resolver).Value().(*abyss_host.SimplePathResolver)
 	if !ok {
-		error_queue <- errors.New("invalid handle for path resolver")
+		raiseError(errors.New("invalid handle for path resolver"))
 		return 0
 	}
 
 	net_service, err := abyss_net.NewBetaNetService(root_priv_key_casted, abyss_net.NewBetaAddressSelector())
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 
@@ -186,7 +193,7 @@ func Host_AppendKnownPeer(h C.uintptr_t, root_cert_buf *C.char, root_cert_len C.
 
 	err := host.NetworkService.AppendKnownPeer(string(UnmarshalBytes(root_cert_buf, root_cert_len)), string(UnmarshalBytes(hs_key_cert_buf, hs_key_cert_len)))
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return INVALID_ARGUMENTS
 	}
 	return 0
@@ -221,13 +228,13 @@ func (w *WorldExport) Destruct() {
 func Host_OpenWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int) C.uintptr_t {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
 	if !ok {
-		error_queue <- errors.New("invalid handle")
+		raiseError(errors.New("invalid handle"))
 		return 0
 	}
 
 	world, err := host.OpenWorld(string(UnmarshalBytes(url_ptr, url_len)))
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 
@@ -242,13 +249,13 @@ func Host_OpenWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int) C.uintptr_t {
 func Host_JoinWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int, timeout_ms C.int) C.uintptr_t {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
 	if !ok {
-		error_queue <- errors.New("invalid handle")
+		raiseError(errors.New("invalid handle"))
 		return 0
 	}
 
 	aurl, err := aurl.ParseAURL(string(UnmarshalBytes(url_ptr, url_len)))
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 
@@ -256,7 +263,7 @@ func Host_JoinWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int, timeout_ms C.
 	defer ctx_cancel()
 	world, err := host.JoinWorld(ctx, aurl)
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 
@@ -293,7 +300,7 @@ type ObjectDeleteData struct {
 func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 	world, ok := cgo.Handle(h).Value().(*WorldExport)
 	if !ok {
-		error_queue <- errors.New("invalid handle")
+		raiseError(errors.New("invalid handle"))
 		return 0
 	}
 
@@ -340,7 +347,7 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 		*event_type_out = 6
 		return 0
 	default:
-		error_queue <- errors.New("internal fault")
+		raiseError(errors.New("internal fault"))
 		*event_type_out = -1
 		return 0
 	}
@@ -402,7 +409,7 @@ func WorldPeer_AppendObjects(h C.uintptr_t, json_ptr *C.char, json_len C.int) C.
 	}
 	err := json.Unmarshal(json_data, &raw_object_infos)
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return INVALID_ARGUMENTS
 	}
 	res, _, err := functional.Filter_until_err(raw_object_infos, func(i struct {
@@ -419,7 +426,7 @@ func WorldPeer_AppendObjects(h C.uintptr_t, json_ptr *C.char, json_len C.int) C.
 		}, nil
 	})
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return INVALID_ARGUMENTS
 	}
 
@@ -438,7 +445,7 @@ func WorldPeer_DeleteObjects(h C.uintptr_t, json_ptr *C.char, json_len C.int) C.
 	var raw_object_ids []string
 	err := json.Unmarshal(json_data, &raw_object_ids)
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return INVALID_ARGUMENTS
 	}
 	res, _, err := functional.Filter_until_err(raw_object_ids, func(i string) (uuid.UUID, error) {
@@ -449,7 +456,7 @@ func WorldPeer_DeleteObjects(h C.uintptr_t, json_ptr *C.char, json_len C.int) C.
 		return uuid.UUID(bytes), nil
 	})
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return INVALID_ARGUMENTS
 	}
 
@@ -521,7 +528,7 @@ func (c *AbystClientExport) Destuct() {
 func Host_GetAbystClientConnection(h C.uintptr_t, peer_hash_ptr *C.char, peer_hash_len C.int, timeout_ms C.int) C.uintptr_t {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
 	if !ok {
-		error_queue <- errors.New("invalid handle")
+		raiseError(errors.New("invalid handle"))
 		return 0
 	}
 
@@ -529,7 +536,7 @@ func Host_GetAbystClientConnection(h C.uintptr_t, peer_hash_ptr *C.char, peer_ha
 	defer ctx_cancel()
 	http_client, err := host.GetAbystClientConnection(ctx, string(UnmarshalBytes(peer_hash_ptr, peer_hash_len)))
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 
@@ -550,7 +557,7 @@ func (w *AbystResponseExport) Destruct() {
 func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len C.int) C.uintptr_t {
 	client, ok := cgo.Handle(h).Value().(*http3.ClientConn)
 	if !ok {
-		error_queue <- errors.New("invalid handle")
+		raiseError(errors.New("invalid handle"))
 		return 0
 	}
 	var method_string string
@@ -558,17 +565,17 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 	case 0:
 		method_string = http.MethodGet
 	default:
-		error_queue <- errors.New("invalid method")
+		raiseError(errors.New("invalid method"))
 		return 0
 	}
 	request, err := http.NewRequest(method_string, "https://a.abyst/"+string(UnmarshalBytes(path_ptr, path_len)), nil)
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 	response, err := client.RoundTrip(request)
 	if err != nil {
-		error_queue <- err
+		raiseError(err)
 		return 0
 	}
 
