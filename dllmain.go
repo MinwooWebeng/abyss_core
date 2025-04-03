@@ -572,7 +572,7 @@ func (w *AbystResponseExport) Destruct() {
 
 //export AbystClient_Request
 func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len C.int) C.uintptr_t {
-	client, ok := cgo.Handle(h).Value().(*http3.ClientConn)
+	client, ok := cgo.Handle(h).Value().(*AbystClientExport)
 	if !ok {
 		raiseError(errors.New("invalid handle"))
 		return 0
@@ -590,7 +590,7 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 		raiseError(err)
 		return 0
 	}
-	response, err := client.RoundTrip(request)
+	response, err := client.inner.RoundTrip(request)
 	if err != nil {
 		raiseError(err)
 		return 0
