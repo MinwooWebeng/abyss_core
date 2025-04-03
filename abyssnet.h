@@ -107,6 +107,9 @@ extern __declspec(dllexport) int WorldPeerLeave_GetHash(uintptr_t h, char* buf, 
 extern __declspec(dllexport) int WorldLeave(uintptr_t h);
 extern __declspec(dllexport) uintptr_t Host_GetAbystClientConnection(uintptr_t h, char* peer_hash_ptr, int peer_hash_len, int timeout_ms);
 extern __declspec(dllexport) uintptr_t AbystClient_Request(uintptr_t h, int method, char* path_ptr, int path_len);
+extern __declspec(dllexport) int AbyssResponse_GetContentLength(uintptr_t h);
+extern __declspec(dllexport) int AbystResponse_ReadBody(uintptr_t h, char* buf, int buflen);
+extern __declspec(dllexport) int AbystResponse_ReadBodyAll(uintptr_t h, char* buf, int buflen);
 
 #ifdef __cplusplus
 }
