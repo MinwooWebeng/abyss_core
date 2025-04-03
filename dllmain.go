@@ -30,6 +30,7 @@ const (
 	ERROR             = -1
 	INVALID_ARGUMENTS = -2
 	BUFFER_OVERFLOW   = -3
+	REMOTE_ERROR      = -4  //peer error.
 	INVALID_HANDLE    = -99 //for method calls
 )
 
@@ -220,10 +221,6 @@ type WorldExport struct {
 	event_ch chan any
 }
 
-func (w *WorldExport) Destruct() {
-	w.origin.LeaveWorld(w.inner)
-}
-
 //export Host_OpenWorld
 func Host_OpenWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int) C.uintptr_t {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
@@ -294,6 +291,15 @@ type ObjectAppendData struct {
 type ObjectDeleteData struct {
 	peer_hash string
 	body_json string
+}
+
+//export World_GetURL
+func World_GetURL(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+	world, ok := cgo.Handle(h).Value().(*WorldExport)
+	if !ok {
+		return INVALID_HANDLE
+	}
+	return TryMarshalBytes(buf, buflen, []byte(world.inner.URL()))
 }
 
 //export World_WaitEvent
@@ -516,6 +522,17 @@ func WorldPeerLeave_GetHash(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 	return TryMarshalBytes(buf, buflen, []byte(event.PeerHash))
 }
 
+//export WorldLeave
+func WorldLeave(h C.uintptr_t) C.int {
+	world, ok := cgo.Handle(h).Value().(*WorldExport)
+	if !ok {
+		return INVALID_HANDLE
+	}
+
+	world.origin.LeaveWorld(world.inner)
+	return 0
+}
+
 type AbystClientExport struct {
 	inner *http3.ClientConn
 }
@@ -584,6 +601,21 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 	}))
 }
 
+//export AbyssResponse_GetContentLength
+func AbyssResponse_GetContentLength(h C.uintptr_t) C.int {
+	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
+	if !ok {
+		return INVALID_HANDLE
+	}
+
+	if response.inner.ContentLength < 0 || response.inner.ContentLength > 1024*1024*1024 {
+		return REMOTE_ERROR
+	}
+
+	return C.int(response.inner.ContentLength)
+}
+
+//export AbystResponse_ReadBody
 func AbystResponse_ReadBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
 	if !ok {
@@ -600,6 +632,25 @@ func AbystResponse_ReadBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 	}
 
 	return C.int(read_len)
+}
+
+//export AbystResponse_ReadBodyAll
+func AbystResponse_ReadBodyAll(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
+	if !ok {
+		return INVALID_HANDLE
+	}
+
+	if int(buflen) < int(response.inner.ContentLength) {
+		return BUFFER_OVERFLOW
+	}
+
+	len, err := response.inner.Body.Read(UnmarshalBytes(buf, buflen))
+	if err != nil {
+		raiseError(err)
+		return ERROR
+	}
+	return C.int(len)
 }
 
 //TODO: enable some external binding for abyst server. we may expect all abyst local hosts are just available some elsewhere. enable forwarding

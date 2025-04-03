@@ -91,6 +91,7 @@ extern __declspec(dllexport) int Host_OpenOutboundConnection(uintptr_t h, char* 
 extern __declspec(dllexport) uintptr_t Host_OpenWorld(uintptr_t h, char* url_ptr, int url_len);
 extern __declspec(dllexport) uintptr_t Host_JoinWorld(uintptr_t h, char* url_ptr, int url_len, int timeout_ms);
 extern __declspec(dllexport) int World_GetSessionID(uintptr_t h, char* world_ID_out);
+extern __declspec(dllexport) int World_GetURL(uintptr_t h, char* buf, int buflen);
 extern __declspec(dllexport) uintptr_t World_WaitEvent(uintptr_t h, int* event_type_out);
 extern __declspec(dllexport) int WorldPeerRequest_GetHash(uintptr_t h, char* buf, int buflen);
 extern __declspec(dllexport) int WorldPeerRequest_Accept(uintptr_t h);
@@ -103,6 +104,7 @@ extern __declspec(dllexport) int WorldPeerObjectAppend_GetBody(uintptr_t h, char
 extern __declspec(dllexport) int WorldPeerObjectDelete_GetHead(uintptr_t h, char* peer_hash_out, int* body_len);
 extern __declspec(dllexport) int WorldPeerObjectDelete_GetBody(uintptr_t h, char* buf, int buflen);
 extern __declspec(dllexport) int WorldPeerLeave_GetHash(uintptr_t h, char* buf, int buflen);
+extern __declspec(dllexport) int WorldLeave(uintptr_t h);
 extern __declspec(dllexport) uintptr_t Host_GetAbystClientConnection(uintptr_t h, char* peer_hash_ptr, int peer_hash_len, int timeout_ms);
 extern __declspec(dllexport) uintptr_t AbystClient_Request(uintptr_t h, int method, char* path_ptr, int path_len);
 

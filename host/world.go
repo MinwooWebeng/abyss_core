@@ -9,18 +9,21 @@ import (
 type World struct {
 	origin       abyss.INeighborDiscovery
 	session_id   uuid.UUID
+	url          string
 	eventChannel chan any
 }
 
-func NewWorld(origin abyss.INeighborDiscovery, session_id uuid.UUID) *World {
+func NewWorld(origin abyss.INeighborDiscovery, session_id uuid.UUID, url string) *World {
 	return &World{
 		origin:       origin,
 		session_id:   session_id,
+		url:          url,
 		eventChannel: make(chan any, 16),
 	}
 }
 
 func (w *World) SessionID() uuid.UUID { return w.session_id }
+func (w *World) URL() string          { return w.url }
 func (w *World) GetEventChannel() chan any {
 	return w.eventChannel
 }

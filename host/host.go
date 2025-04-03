@@ -342,7 +342,7 @@ func (h *AbyssHost) eventLoop() {
 
 				var new_world *World
 				if e.Type == abyss.ANDJoinSuccess {
-					new_world = NewWorld(h.neighborDiscoveryAlgorithm, e.LocalSessionID)
+					new_world = NewWorld(h.neighborDiscoveryAlgorithm, e.LocalSessionID, e.Text)
 					h.worlds_mtx.Lock()
 					h.worlds[e.LocalSessionID] = new_world
 					h.worlds_mtx.Unlock()

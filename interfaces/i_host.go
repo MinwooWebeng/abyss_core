@@ -46,6 +46,7 @@ type EWorldTerminate struct{}
 
 type IAbyssWorld interface {
 	SessionID() uuid.UUID
+	URL() string
 	GetEventChannel() chan any
 }
 
