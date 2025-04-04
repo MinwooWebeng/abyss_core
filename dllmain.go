@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"runtime/cgo"
 	"time"
@@ -622,7 +623,7 @@ func AbystResponse_ReadBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 		return INVALID_HANDLE
 	}
 
-	if buflen <= 0 || buflen > 134217728 { //over 100MiB - must be some error.
+	if buflen <= 0 || buflen > 1024*1024*1024 { //over 1GiB - must be some error.
 		return INVALID_ARGUMENTS
 	}
 
@@ -635,7 +636,7 @@ func AbystResponse_ReadBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 }
 
 //export AbystResponse_ReadBodyAll
-func AbystResponse_ReadBodyAll(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func AbystResponse_ReadBodyAll(h C.uintptr_t, buf_ptr *C.char, buflen C.int) C.int {
 	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
 	if !ok {
 		return INVALID_HANDLE
@@ -645,12 +646,22 @@ func AbystResponse_ReadBodyAll(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 		return BUFFER_OVERFLOW
 	}
 
-	len, err := response.inner.Body.Read(UnmarshalBytes(buf, buflen))
-	if err != nil {
-		raiseError(err)
-		return ERROR
+	buf := UnmarshalBytes(buf_ptr, buflen)
+	readlen := 0
+	for {
+		n, err := response.inner.Body.Read(buf[readlen:])
+		if err == io.EOF {
+			readlen += n
+			break
+		}
+		if err != nil {
+			raiseError(err)
+			return ERROR
+		}
+		readlen += n
 	}
-	return C.int(len)
+
+	return C.int(readlen)
 }
 
 //TODO: enable some external binding for abyst server. we may expect all abyst local hosts are just available some elsewhere. enable forwarding
