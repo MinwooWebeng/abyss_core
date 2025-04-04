@@ -61,7 +61,7 @@ func PopErrorQueue() C.uintptr_t {
 	case err := <-error_queue:
 		return C.uintptr_t(cgo.NewHandle(err))
 	default:
-		return C.uintptr_t(cgo.NewHandle(errors.New("no error")))
+		return C.uintptr_t(cgo.NewHandle(errors.New("no abyss_net error")))
 	}
 }
 
