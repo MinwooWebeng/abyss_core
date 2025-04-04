@@ -8,7 +8,6 @@ import (
 	"github.com/quic-go/quic-go"
 
 	"abyss_neighbor_discovery/ahmp"
-	abyss "abyss_neighbor_discovery/interfaces"
 )
 
 type AbyssInbound struct {
@@ -85,7 +84,8 @@ func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection qui
 
 func (h *BetaNetService) PrepareAbystInbound(ctx context.Context, connection quic.Connection) {
 	//TODO: peer authentication
-	h.abystServerCH <- abyss.AbystInboundSession{PeerHash: "unknown", Connection: connection}
+	//h.abystServerCH <- abyss.AbystInboundSession{PeerHash: "unknown", Connection: connection}
+	h.abystServer.ServeQUICConn(connection)
 }
 
 func (h *AbyssInbound) listenAhmp() {

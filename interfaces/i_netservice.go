@@ -36,7 +36,6 @@ type INetworkService interface {
 	CloseAbyssPeer(peer IANDPeer)
 
 	ConnectAbyst(ctx context.Context, peer_hash string) (quic.Connection, error)
-	GetAbystServerPeerChannel() chan AbystInboundSession //abyst server-side connection
 }
 
 type IAddressSelector interface {

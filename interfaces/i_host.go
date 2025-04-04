@@ -63,5 +63,4 @@ type IAbyssHost interface {
 
 	//Abyst
 	GetAbystClientConnection(ctx context.Context, peer_hash string) (*http3.ClientConn, error)
-	GetAbystServerPeerChannel() chan AbystInboundSession
 }

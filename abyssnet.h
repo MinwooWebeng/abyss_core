@@ -83,7 +83,8 @@ extern __declspec(dllexport) void CloseAbyssHandle(uintptr_t handle);
 extern __declspec(dllexport) uintptr_t NewSimplePathResolver();
 extern __declspec(dllexport) int SimplePathResolver_SetMapping(uintptr_t h, char* path_ptr, int path_len, char* world_ID);
 extern __declspec(dllexport) int SimplePathResolver_DeleteMapping(uintptr_t h, char* path_ptr, int path_len);
-extern __declspec(dllexport) uintptr_t NewHost(char* root_priv_key_pem_ptr, int root_priv_key_pem_len, uintptr_t h_path_resolver);
+extern __declspec(dllexport) uintptr_t NewSimpleAbystServer(char* path_ptr, int path_len);
+extern __declspec(dllexport) uintptr_t NewHost(char* root_priv_key_pem_ptr, int root_priv_key_pem_len, uintptr_t h_path_resolver, uintptr_t h_abyst_server);
 extern __declspec(dllexport) int Host_GetLocalAbyssURL(uintptr_t h, char* buf, int buflen);
 extern __declspec(dllexport) int Host_GetCertificates(uintptr_t h, char* root_cert_buf, int* root_cert_len, char* hs_key_cert_buf, int* hs_key_cert_len);
 extern __declspec(dllexport) int Host_AppendKnownPeer(uintptr_t h, char* root_cert_buf, int root_cert_len, char* hs_key_cert_buf, int hs_key_cert_len);
@@ -109,7 +110,7 @@ extern __declspec(dllexport) uintptr_t Host_GetAbystClientConnection(uintptr_t h
 extern __declspec(dllexport) uintptr_t AbystClient_Request(uintptr_t h, int method, char* path_ptr, int path_len);
 extern __declspec(dllexport) int AbyssResponse_GetContentLength(uintptr_t h);
 extern __declspec(dllexport) int AbystResponse_ReadBody(uintptr_t h, char* buf, int buflen);
-extern __declspec(dllexport) int AbystResponse_ReadBodyAll(uintptr_t h, char* buf, int buflen);
+extern __declspec(dllexport) int AbystResponse_ReadBodyAll(uintptr_t h, char* buf_ptr, int buflen);
 
 #ifdef __cplusplus
 }

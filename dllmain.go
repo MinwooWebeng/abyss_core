@@ -118,8 +118,21 @@ func SimplePathResolver_DeleteMapping(h C.uintptr_t, path_ptr *C.char, path_len 
 	return 0
 }
 
+//export NewSimpleAbystServer
+func NewSimpleAbystServer(path_ptr *C.char, path_len C.int) C.uintptr_t {
+	path_bytes := UnmarshalBytes(path_ptr, path_len)
+	return C.uintptr_t(cgo.NewHandle(&http3.Server{
+		Handler: http.FileServer(http.Dir(path_bytes)),
+	}))
+}
+
 //export NewHost
-func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_resolver C.uintptr_t) C.uintptr_t {
+func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_resolver C.uintptr_t, h_abyst_server C.uintptr_t) C.uintptr_t {
+	abyst_server, ok := cgo.Handle(h_abyst_server).Value().(*http3.Server)
+	if !ok {
+		return 0
+	}
+
 	root_priv_key_pem := UnmarshalBytes(root_priv_key_pem_ptr, root_priv_key_pem_len)
 
 	root_priv_key, err := ssh.ParseRawPrivateKey(root_priv_key_pem)
@@ -139,7 +152,7 @@ func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_
 		return 0
 	}
 
-	net_service, err := abyss_net.NewBetaNetService(root_priv_key_casted, abyss_net.NewBetaAddressSelector())
+	net_service, err := abyss_net.NewBetaNetService(root_priv_key_casted, abyss_net.NewBetaAddressSelector(), abyst_server)
 	if err != nil {
 		raiseError(err)
 		return 0

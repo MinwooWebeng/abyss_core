@@ -178,9 +178,6 @@ func (h *AbyssHost) GetAbystClientConnection(ctx context.Context, peer_hash stri
 	}
 	return h.abystClientTr.NewClientConn(conn), nil
 }
-func (h *AbyssHost) GetAbystServerPeerChannel() chan abyss.AbystInboundSession {
-	return h.NetworkService.GetAbystServerPeerChannel()
-}
 
 func (h *AbyssHost) ListenAndServe(ctx context.Context) {
 	if h.ctx != nil {

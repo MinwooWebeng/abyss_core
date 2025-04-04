@@ -40,8 +40,9 @@ type BetaNetService struct {
 	outbound_ongoing     map[string]*net.UDPAddr //outbound host identity -> connected IP. if connecting, nil.
 	outbound_ongoing_mtx *sync.Mutex
 
-	abyssPeerCH   chan abyss.IANDPeer
-	abystServerCH chan abyss.AbystInboundSession
+	abyssPeerCH chan abyss.IANDPeer
+	//abystServerCH chan abyss.AbystInboundSession
+	abystServer *http3.Server
 }
 
 func _getLocalIP() (string, error) {
@@ -58,7 +59,7 @@ func _getLocalIP() (string, error) {
 	return localAddr.IP.String(), nil
 }
 
-func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAddressSelector) (*BetaNetService, error) {
+func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAddressSelector, abyst_server *http3.Server) (*BetaNetService, error) {
 	result := new(BetaNetService)
 
 	root_secret, err := NewRootIdentity(local_private_key)
@@ -106,7 +107,8 @@ func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAdd
 	result.outbound_ongoing_mtx = new(sync.Mutex)
 
 	result.abyssPeerCH = make(chan abyss.IANDPeer, 8)
-	result.abystServerCH = make(chan abyss.AbystInboundSession, 16)
+	//result.abystServerCH = make(chan abyss.AbystInboundSession, 16)
+	result.abystServer = abyst_server
 
 	return result, nil
 }
@@ -324,6 +326,7 @@ func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (qu
 
 	return connection, nil
 }
-func (h *BetaNetService) GetAbystServerPeerChannel() chan abyss.AbystInboundSession {
-	return h.abystServerCH
-}
+
+// func (h *BetaNetService) GetAbystServerPeerChannel() chan abyss.AbystInboundSession {
+// 	return h.abystServerCH
+// }
