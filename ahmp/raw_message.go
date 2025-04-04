@@ -73,7 +73,7 @@ func (r *RawJOK) TryParse() (*JOK, error) {
 		return nil, err
 	}
 	neig, ok := functional.Filter_strict_ok(r.Neighbors, func(i RawSessionInfoForDiscovery) (abyss.ANDFullPeerSessionInfo, bool) {
-		abyss_url, err := aurl.ParseAURL(i.AURL)
+		abyss_url, err := aurl.TryParse(i.AURL)
 		if err != nil {
 			return abyss.ANDFullPeerSessionInfo{}, false
 		}
@@ -124,7 +124,7 @@ func (r *RawJNI) TryParse() (*JNI, error) {
 		return nil, err
 	}
 
-	abyss_url, err := aurl.ParseAURL(r.Neighbor.AURL)
+	abyss_url, err := aurl.TryParse(r.Neighbor.AURL)
 	if err != nil {
 		return nil, err
 	}

@@ -104,7 +104,11 @@ func SimplePathResolver_SetMapping(h C.uintptr_t, path_ptr *C.char, path_len C.i
 	var world_uuid uuid.UUID
 	data := UnmarshalBytes(world_ID, 16)
 	copy(world_uuid[:], data)
-	path_resolver.SetMapping(string(UnmarshalBytes(path_ptr, path_len)), world_uuid)
+	if path_len == 0 { //special case: default path
+		path_resolver.SetMapping("", world_uuid)
+	} else {
+		path_resolver.SetMapping(string(UnmarshalBytes(path_ptr, path_len)), world_uuid)
+	}
 	return 0
 }
 
@@ -130,6 +134,7 @@ func NewSimpleAbystServer(path_ptr *C.char, path_len C.int) C.uintptr_t {
 func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_resolver C.uintptr_t, h_abyst_server C.uintptr_t) C.uintptr_t {
 	abyst_server, ok := cgo.Handle(h_abyst_server).Value().(*http3.Server)
 	if !ok {
+		raiseError(errors.New("invalid handle for abyst_server"))
 		return 0
 	}
 
@@ -221,7 +226,7 @@ func Host_OpenOutboundConnection(h C.uintptr_t, abyss_url_ptr *C.char, abyss_url
 		return INVALID_HANDLE
 	}
 
-	aurl, err := aurl.ParseAURL(string(UnmarshalBytes(abyss_url_ptr, abyss_url_len)))
+	aurl, err := aurl.TryParse(string(UnmarshalBytes(abyss_url_ptr, abyss_url_len)))
 	if err != nil {
 		return INVALID_ARGUMENTS
 	}
@@ -264,7 +269,7 @@ func Host_JoinWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int, timeout_ms C.
 		return 0
 	}
 
-	aurl, err := aurl.ParseAURL(string(UnmarshalBytes(url_ptr, url_len)))
+	aurl, err := aurl.TryParse(string(UnmarshalBytes(url_ptr, url_len)))
 	if err != nil {
 		raiseError(err)
 		return 0

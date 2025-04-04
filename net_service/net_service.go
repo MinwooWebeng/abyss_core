@@ -89,7 +89,7 @@ func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAdd
 	if err != nil {
 		return nil, err
 	}
-	result.local_aurl, err = aurl.ParseAURL("abyss:" +
+	result.local_aurl, err = aurl.TryParse("abyss:" +
 		root_secret.IDHash() +
 		":" + local_ip + ":" + local_port +
 		"|127.0.0.1:" + local_port)

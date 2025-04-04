@@ -36,7 +36,7 @@ func printWorldEvents(time_begin time.Time, prefix string, host abyss.IAbyssHost
 			fin_ch <- true
 			return
 		case joiner_aurl := <-joiner_ch:
-			parsed_aurl, err := aurl.ParseAURL(joiner_aurl)
+			parsed_aurl, err := aurl.TryParse(joiner_aurl)
 			if err != nil {
 				panic(err.Error())
 			}
@@ -250,7 +250,7 @@ func (a *AutonomousHost) Run(ctx context.Context, time_begin time.Time, done_ch 
 					fmt.Println(a.log_prefix + "no join target")
 					continue
 				}
-				join_target, err := aurl.ParseAURL(join_target_string)
+				join_target, err := aurl.TryParse(join_target_string)
 				if err != nil {
 					panic(err.Error())
 				}

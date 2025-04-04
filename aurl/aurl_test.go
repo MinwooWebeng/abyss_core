@@ -8,7 +8,7 @@ import (
 func ParsePrintAURL(aurl string) {
 	fmt.Println(aurl)
 
-	_aurl, err := ParseAURL(aurl)
+	_aurl, err := TryParse(aurl)
 	if err != nil {
 		fmt.Println(err.Error() + "\n")
 		return
