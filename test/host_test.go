@@ -348,7 +348,7 @@ func TestObjectSharing(t *testing.T) {
 
 	A_world, _ := hostA.OpenWorld("http://a.world.com")
 	a_world_ch := A_world.GetEventChannel()
-	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
+	hostA_pathMap.SetMapping("home", A_world.SessionID()) //this opens the world for join from A's side
 
 	<-time.After(100 * time.Millisecond)
 	hostA.OpenOutboundConnection(hostB.GetLocalAbyssURL())
@@ -360,7 +360,7 @@ func TestObjectSharing(t *testing.T) {
 	}()
 
 	join_url := hostA.GetLocalAbyssURL()
-	join_url.Path = "/home"
+	join_url.Path = "home"
 	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), time.Second)
 	B_A_world, _ := hostB.JoinWorld(join_ctx, join_url)
 	join_ctx_cancel()

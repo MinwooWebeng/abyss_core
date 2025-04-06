@@ -49,6 +49,10 @@ func raiseError(err error) {
 	}
 }
 
+func marshalError(err error) C.uintptr_t {
+	return C.uintptr_t(cgo.NewHandle(err))
+}
+
 //export Init
 func Init() C.int {
 	error_queue = make(chan error, 1)
@@ -561,10 +565,10 @@ func (c *AbystClientExport) Destuct() {
 }
 
 //export Host_GetAbystClientConnection
-func Host_GetAbystClientConnection(h C.uintptr_t, peer_hash_ptr *C.char, peer_hash_len C.int, timeout_ms C.int) C.uintptr_t {
+func Host_GetAbystClientConnection(h C.uintptr_t, peer_hash_ptr *C.char, peer_hash_len C.int, timeout_ms C.int, err_out *C.uintptr_t) C.uintptr_t {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
 	if !ok {
-		raiseError(errors.New("invalid handle"))
+		*err_out = marshalError(errors.New("invalid handle"))
 		return 0
 	}
 
@@ -572,7 +576,7 @@ func Host_GetAbystClientConnection(h C.uintptr_t, peer_hash_ptr *C.char, peer_ha
 	defer ctx_cancel()
 	http_client, err := host.GetAbystClientConnection(ctx, string(UnmarshalBytes(peer_hash_ptr, peer_hash_len)))
 	if err != nil {
-		raiseError(err)
+		*err_out = marshalError(err)
 		return 0
 	}
 
@@ -601,10 +605,21 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 	case 0:
 		method_string = http.MethodGet
 	default:
-		raiseError(errors.New("invalid method"))
-		return 0
+		return C.uintptr_t(cgo.NewHandle(&AbystResponseExport{
+			inner: &http.Response{
+				Status:     "400 Bad Request",
+				StatusCode: 400,
+			},
+		}))
 	}
-	request, err := http.NewRequest(method_string, "https://a.abyst/"+string(UnmarshalBytes(path_ptr, path_len)), nil)
+
+	var path_string string
+	if path_len == 0 {
+		path_string = ""
+	} else {
+		path_string = string(UnmarshalBytes(path_ptr, path_len))
+	}
+	request, err := http.NewRequest(method_string, "https://a.abyst/"+path_string, nil)
 	if err != nil {
 		raiseError(err)
 		return 0
@@ -618,6 +633,31 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 	return C.uintptr_t(cgo.NewHandle(&AbystResponseExport{
 		inner: response,
 	}))
+}
+
+//export AbyssResponse_GetHeaders
+func AbyssResponse_GetHeaders(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
+	if !ok {
+		return INVALID_HANDLE
+	}
+
+	data := make(map[string]interface{})
+	data["Code"] = response.inner.StatusCode
+	data["Status"] = response.inner.Status
+	if response.inner.Header != nil {
+		data["Header"] = response.inner.Header
+	}
+
+	json_bytes, err := json.Marshal(data)
+	if err != nil {
+		data := make(map[string]interface{})
+		data["Code"] = 422
+		data["Status"] = "Unprocessable Entity"
+		json_bytes, _ := json.Marshal(data)
+		return TryMarshalBytes(buf, buflen, json_bytes)
+	}
+	return TryMarshalBytes(buf, buflen, json_bytes)
 }
 
 //export AbyssResponse_GetContentLength

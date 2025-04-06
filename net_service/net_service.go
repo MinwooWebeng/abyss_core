@@ -312,6 +312,15 @@ func (h *BetaNetService) CloseAbyssPeer(peer abyss.IANDPeer) {
 func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (quic.Connection, error) {
 	var net_addr *net.UDPAddr
 
+	if peer_hash == h.localIdentity.root_id_hash { //loopback
+		connection, err := h.quicTransport.Dial(ctx, h.local_aurl.Addresses[len(h.local_aurl.Addresses)-1], h.tlsConf, h.quicConf)
+		if err != nil {
+			return nil, err
+		}
+
+		return connection, nil
+	}
+
 	h.outbound_ongoing_mtx.Lock()
 	net_addr, ok := h.outbound_ongoing[peer_hash]
 	h.outbound_ongoing_mtx.Unlock()
