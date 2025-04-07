@@ -24,7 +24,7 @@ type BetaNetService struct {
 
 	quicTransport *quic.Transport
 	tlsIdentity   *TLSIdentity
-	tlsConf       *tls.Config
+	abyssTlsConf  *tls.Config
 	quicConf      *quic.Config
 
 	local_aurl *aurl.AURL
@@ -41,8 +41,9 @@ type BetaNetService struct {
 	outbound_ongoing_mtx *sync.Mutex
 
 	abyssPeerCH chan abyss.IANDPeer
-	//abystServerCH chan abyss.AbystInboundSession
-	abystServer *http3.Server
+
+	abystTlsConf *tls.Config
+	abystServer  *http3.Server
 }
 
 func _getLocalIP() (string, error) {
@@ -75,7 +76,7 @@ func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAdd
 	if err != nil {
 		return nil, err
 	}
-	result.tlsConf = NewDefaultTlsConf(tls_identity)
+	result.abyssTlsConf = NewDefaultTlsConf(tls_identity)
 
 	udpConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
@@ -107,7 +108,9 @@ func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAdd
 	result.outbound_ongoing_mtx = new(sync.Mutex)
 
 	result.abyssPeerCH = make(chan abyss.IANDPeer, 8)
-	//result.abystServerCH = make(chan abyss.AbystInboundSession, 16)
+
+	result.abystTlsConf = NewDefaultTlsConf(tls_identity)
+	result.abystTlsConf.NextProtos = []string{http3.NextProtoH3} //abyst only.
 	result.abystServer = abyst_server
 
 	return result, nil
@@ -159,7 +162,7 @@ func (h *BetaNetService) HandlePreAccept(preaccept_handler abyss.IPreAccepter) {
 }
 
 func (h *BetaNetService) ListenAndServe(ctx context.Context) error {
-	listener, err := h.quicTransport.Listen(h.tlsConf, h.quicConf)
+	listener, err := h.quicTransport.Listen(h.abyssTlsConf, h.quicConf)
 	if err != nil {
 		return err
 	}
@@ -291,7 +294,7 @@ func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) 
 }
 
 func (h *BetaNetService) _connectAbyss(ctx context.Context, addresses []*net.UDPAddr, peer_hash string) {
-	connection, err := h.quicTransport.Dial(ctx, addresses[0], h.tlsConf, h.quicConf)
+	connection, err := h.quicTransport.Dial(ctx, addresses[0], h.abyssTlsConf, h.quicConf)
 	if err != nil {
 		h.abyssOutBound <- AbyssOutbound{nil, nil, nil, nil, err}
 		return
@@ -313,7 +316,7 @@ func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (qu
 	var net_addr *net.UDPAddr
 
 	if peer_hash == h.localIdentity.root_id_hash { //loopback
-		connection, err := h.quicTransport.Dial(ctx, h.local_aurl.Addresses[len(h.local_aurl.Addresses)-1], h.tlsConf, h.quicConf)
+		connection, err := h.quicTransport.Dial(ctx, h.local_aurl.Addresses[len(h.local_aurl.Addresses)-1], h.abystTlsConf, h.quicConf)
 		if err != nil {
 			return nil, err
 		}
@@ -328,7 +331,7 @@ func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (qu
 	if !ok {
 		return nil, errors.New("no abyss connection")
 	}
-	connection, err := h.quicTransport.Dial(ctx, net_addr, h.tlsConf, h.quicConf)
+	connection, err := h.quicTransport.Dial(ctx, net_addr, h.abystTlsConf, h.quicConf)
 	if err != nil {
 		return nil, err
 	}

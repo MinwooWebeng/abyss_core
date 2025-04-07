@@ -8,6 +8,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime/cgo"
 	"time"
 
@@ -43,10 +45,6 @@ func GetVersion(buf *C.char, buflen C.int) C.int {
 var error_queue chan error
 
 func raiseError(err error) {
-	select {
-	case error_queue <- err:
-	default:
-	}
 }
 
 func marshalError(err error) C.uintptr_t {
@@ -61,12 +59,7 @@ func Init() C.int {
 
 //export PopErrorQueue
 func PopErrorQueue() C.uintptr_t {
-	select {
-	case err := <-error_queue:
-		return C.uintptr_t(cgo.NewHandle(err))
-	default:
-		return C.uintptr_t(cgo.NewHandle(errors.New("no abyss_net error")))
-	}
+	return C.uintptr_t(cgo.NewHandle(errors.New("deprecated PopErrorQueue")))
 }
 
 //export GetErrorBodyLength
@@ -118,19 +111,44 @@ func SimplePathResolver_SetMapping(h C.uintptr_t, path_ptr *C.char, path_len C.i
 
 //export SimplePathResolver_DeleteMapping
 func SimplePathResolver_DeleteMapping(h C.uintptr_t, path_ptr *C.char, path_len C.int) C.int {
+	var path string
+	if path_len == 0 {
+		path = ""
+	} else {
+		path = string(UnmarshalBytes(path_ptr, path_len))
+	}
 	path_resolver, ok := cgo.Handle(h).Value().(*abyss_host.SimplePathResolver)
 	if !ok {
 		return INVALID_HANDLE
 	}
-	path_resolver.DeleteMapping(string(UnmarshalBytes(path_ptr, path_len)))
+	path_resolver.DeleteMapping(path)
 	return 0
 }
 
 //export NewSimpleAbystServer
 func NewSimpleAbystServer(path_ptr *C.char, path_len C.int) C.uintptr_t {
-	path_bytes := UnmarshalBytes(path_ptr, path_len)
+	path := string(UnmarshalBytes(path_ptr, path_len))
 	return C.uintptr_t(cgo.NewHandle(&http3.Server{
-		Handler: http.FileServer(http.Dir(path_bytes)),
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" {
+				// Serve main.aml for root path
+				http.ServeFile(w, r, filepath.Join(path, "main.aml"))
+				return
+			}
+
+			// Construct the full file path
+			fullPath := filepath.Join(path, r.URL.Path)
+
+			// Check if it's a directory
+			info, err := os.Stat(fullPath)
+			if err != nil || info.IsDir() {
+				http.NotFound(w, r)
+				return
+			}
+
+			// Serve the file normally
+			http.FileServer(http.Dir(path)).ServeHTTP(w, r)
+		}),
 	}))
 }
 
@@ -405,12 +423,18 @@ func WorldPeerRequest_Accept(h C.uintptr_t) C.int {
 
 //export WorldPeerRequest_Decline
 func WorldPeerRequest_Decline(h C.uintptr_t, code C.int, msg *C.char, msglen C.int) C.int {
+	var msg_str string
+	if msglen == 0 {
+		msg_str = ""
+	} else {
+		msg_str = string(UnmarshalBytes(msg, msglen))
+	}
 	event, ok := cgo.Handle(h).Value().(*abyss.EWorldPeerRequest)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	event.Decline(int(code), string(UnmarshalBytes(msg, msglen)))
+	event.Decline(int(code), msg_str)
 	return 0
 }
 
@@ -594,10 +618,10 @@ func (w *AbystResponseExport) Destruct() {
 }
 
 //export AbystClient_Request
-func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len C.int) C.uintptr_t {
+func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len C.int, err_out *C.uintptr_t) C.uintptr_t {
 	client, ok := cgo.Handle(h).Value().(*AbystClientExport)
 	if !ok {
-		raiseError(errors.New("invalid handle"))
+		*err_out = marshalError(errors.New("invalid handle"))
 		return 0
 	}
 	var method_string string
@@ -621,12 +645,12 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 	}
 	request, err := http.NewRequest(method_string, "https://a.abyst/"+path_string, nil)
 	if err != nil {
-		raiseError(err)
+		*err_out = marshalError(err)
 		return 0
 	}
 	response, err := client.inner.RoundTrip(request)
 	if err != nil {
-		raiseError(err)
+		*err_out = marshalError(err)
 		return 0
 	}
 
@@ -642,7 +666,7 @@ func AbyssResponse_GetHeaders(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 		return INVALID_HANDLE
 	}
 
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	data["Code"] = response.inner.StatusCode
 	data["Status"] = response.inner.Status
 	if response.inner.Header != nil {
@@ -651,7 +675,7 @@ func AbyssResponse_GetHeaders(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 
 	json_bytes, err := json.Marshal(data)
 	if err != nil {
-		data := make(map[string]interface{})
+		data := make(map[string]any)
 		data["Code"] = 422
 		data["Status"] = "Unprocessable Entity"
 		json_bytes, _ := json.Marshal(data)

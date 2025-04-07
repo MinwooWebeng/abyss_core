@@ -380,6 +380,10 @@ func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {
 	}
 
 	delete(a.worlds, local_session_id)
+	a.eventCh <- abyss.NeighborEvent{
+		Type:           abyss.ANDWorldLeave,
+		LocalSessionID: world.local_session_id,
+	}
 	return 0
 }
 
