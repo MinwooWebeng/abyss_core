@@ -15,6 +15,7 @@ import (
 	"abyss_neighbor_discovery/aurl"
 	abyss "abyss_neighbor_discovery/interfaces"
 	"abyss_neighbor_discovery/tools/functional"
+	"abyss_neighbor_discovery/watchdog"
 
 	"github.com/google/uuid"
 	"github.com/quic-go/quic-go"
@@ -264,8 +265,11 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 				and_result = h.neighborDiscoveryAlgorithm.SOA(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Objects)
 			case *ahmp.SOD:
 				and_result = h.neighborDiscoveryAlgorithm.SOD(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.ObjectIDs)
+			case *ahmp.INVAL:
+				//parsing fail
+				watchdog.Error(message.Err)
 			default:
-				panic("unknown ahmp message type")
+				panic("unknown ahmp message type: This is internal implementation missing. MUST be resolved.")
 			}
 
 			if and_result == abyss.EPANIC {

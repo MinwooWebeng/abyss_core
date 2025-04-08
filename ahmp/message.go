@@ -55,3 +55,7 @@ type SOD struct {
 	RecverSessionID uuid.UUID
 	ObjectIDs       []uuid.UUID
 }
+
+type INVAL struct {
+	Err error
+}

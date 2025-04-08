@@ -212,8 +212,9 @@ func (p *AbyssPeer) TrySendSOA(local_session_id uuid.UUID, peer_session_id uuid.
 		RecverSessionID: peer_session_id.String(),
 		Objects: functional.Filter(objects, func(u abyss.ObjectInfo) ahmp.RawObjectInfo {
 			return ahmp.RawObjectInfo{
-				ID:      u.ID.String(),
-				Address: u.Addr,
+				ID:        u.ID.String(),
+				Address:   u.Addr,
+				Transform: u.Transform,
 			}
 		}),
 	}) == nil

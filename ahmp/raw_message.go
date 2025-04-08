@@ -9,14 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type IDFrame struct { //delivers real identity -
-	Payload []byte //certificate - local id -> what? metadata?
-}
-
-type DummyAuth struct {
-	Name string
-}
-
 type RawSessionInfoForDiscovery struct {
 	AURL                       string
 	SessionID                  string
@@ -228,8 +220,9 @@ func (r *RawRST) TryParse() (*RST, error) {
 }
 
 type RawObjectInfo struct {
-	ID      string
-	Address string
+	ID        string
+	Address   string
+	Transform [7]float32
 }
 type RawSOA struct {
 	SenderSessionID string
@@ -250,8 +243,9 @@ func (r *RawSOA) TryParse() (*SOA, error) {
 		func(object_raw RawObjectInfo) (abyss.ObjectInfo, error) {
 			oid, err := uuid.Parse(object_raw.ID)
 			return abyss.ObjectInfo{
-				ID:   oid,
-				Addr: object_raw.Address,
+				ID:        oid,
+				Addr:      object_raw.Address,
+				Transform: object_raw.Transform,
 			}, err
 		})
 	if err != nil {

@@ -13,8 +13,9 @@ type IPathResolver interface {
 }
 
 type ObjectInfo struct {
-	ID   uuid.UUID
-	Addr string
+	ID        uuid.UUID
+	Addr      string
+	Transform [7]float32
 }
 
 type IAbyssPeer interface {
