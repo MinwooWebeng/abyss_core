@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"abyss_neighbor_discovery/aurl"
-	abyss "abyss_neighbor_discovery/interfaces"
+	"abyss_core/aurl"
+	abyss "abyss_core/interfaces"
 )
 
 const DEBUG = true

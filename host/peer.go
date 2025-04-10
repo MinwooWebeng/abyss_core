@@ -1,7 +1,7 @@
 package host
 
 import (
-	abyss "abyss_neighbor_discovery/interfaces"
+	abyss "abyss_core/interfaces"
 
 	"github.com/google/uuid"
 )

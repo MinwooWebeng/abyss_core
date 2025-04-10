@@ -3,10 +3,10 @@ package net_service
 import (
 	"github.com/google/uuid"
 
-	"abyss_neighbor_discovery/ahmp"
-	aurl "abyss_neighbor_discovery/aurl"
-	abyss "abyss_neighbor_discovery/interfaces"
-	"abyss_neighbor_discovery/tools/functional"
+	"abyss_core/ahmp"
+	aurl "abyss_core/aurl"
+	abyss "abyss_core/interfaces"
+	"abyss_core/tools/functional"
 )
 
 type AbyssPeer struct {

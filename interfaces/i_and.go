@@ -1,7 +1,7 @@
 package interfaces
 
 import (
-	"abyss_neighbor_discovery/aurl"
+	"abyss_core/aurl"
 
 	"github.com/google/uuid"
 )

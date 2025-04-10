@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"abyss_neighbor_discovery/aurl"
-	abyss_host "abyss_neighbor_discovery/host"
-	abyss "abyss_neighbor_discovery/interfaces"
-	"abyss_neighbor_discovery/tools/functional"
+	"abyss_core/aurl"
+	abyss_host "abyss_core/host"
+	abyss "abyss_core/interfaces"
+	"abyss_core/tools/functional"
 
 	"github.com/google/uuid"
 )

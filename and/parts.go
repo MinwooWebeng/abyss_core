@@ -3,7 +3,7 @@ package and
 import (
 	"github.com/google/uuid"
 
-	abyss "abyss_neighbor_discovery/interfaces"
+	abyss "abyss_core/interfaces"
 )
 
 const (

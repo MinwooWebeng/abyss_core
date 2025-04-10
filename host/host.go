@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"abyss_neighbor_discovery/ahmp"
-	"abyss_neighbor_discovery/and"
-	"abyss_neighbor_discovery/aurl"
-	abyss "abyss_neighbor_discovery/interfaces"
-	"abyss_neighbor_discovery/tools/functional"
-	"abyss_neighbor_discovery/watchdog"
+	"abyss_core/ahmp"
+	"abyss_core/and"
+	"abyss_core/aurl"
+	abyss "abyss_core/interfaces"
+	"abyss_core/tools/functional"
+	"abyss_core/watchdog"
 
 	"github.com/google/uuid"
 	"github.com/quic-go/quic-go"

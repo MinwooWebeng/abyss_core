@@ -1,9 +1,9 @@
 package ahmp
 
 import (
-	"abyss_neighbor_discovery/aurl"
-	abyss "abyss_neighbor_discovery/interfaces"
-	"abyss_neighbor_discovery/tools/functional"
+	"abyss_core/aurl"
+	abyss "abyss_core/interfaces"
+	"abyss_core/tools/functional"
 	"errors"
 
 	"github.com/google/uuid"
