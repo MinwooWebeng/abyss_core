@@ -135,6 +135,7 @@ func NewDefaultTlsConf(tls_identity *TLSIdentity) *tls.Config {
 			return nil
 		},
 		NextProtos:         []string{abyss.NextProtoAbyss, http3.NextProtoH3},
+		ServerName:         "abyss",
 		ClientAuth:         tls.RequireAnyClientCert,
 		InsecureSkipVerify: true,
 	}
@@ -331,6 +332,9 @@ func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (qu
 	if !ok {
 		return nil, errors.New("no abyss connection")
 	}
+	if net_addr == nil {
+		return nil, errors.New("abyss connect pending")
+	}
 	connection, err := h.quicTransport.Dial(ctx, net_addr, h.abystTlsConf, h.quicConf)
 	if err != nil {
 		return nil, err
@@ -338,7 +342,3 @@ func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (qu
 
 	return connection, nil
 }
-
-// func (h *BetaNetService) GetAbystServerPeerChannel() chan abyss.AbystInboundSession {
-// 	return h.abystServerCH
-// }
