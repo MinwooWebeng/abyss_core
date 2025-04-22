@@ -1,6 +1,11 @@
 package main
 
+/*
+#cgo CFLAGS: -std=c99
+#include <stdint.h>
+*/
 import "C"
+
 import (
 	"context"
 	"encoding/hex"
@@ -38,12 +43,8 @@ const (
 	INVALID_HANDLE    = -99 //for method calls
 )
 
-//export GetVersion
-func GetVersion(buf *C.char, buflen C.int) C.int {
-	return TryMarshalBytes(buf, buflen, []byte(version))
-}
-
 func marshalError(err error) C.uintptr_t {
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(err))
 }
 
@@ -53,11 +54,6 @@ func Init() C.int {
 	return 0
 }
 
-//export PopErrorQueue
-func PopErrorQueue() C.uintptr_t {
-	return C.uintptr_t(cgo.NewHandle(errors.New("deprecated PopErrorQueue")))
-}
-
 //export GetErrorBodyLength
 func GetErrorBodyLength(h_error C.uintptr_t) C.int {
 	err := (cgo.Handle(h_error)).Value().(error)
@@ -65,9 +61,9 @@ func GetErrorBodyLength(h_error C.uintptr_t) C.int {
 }
 
 //export GetErrorBody
-func GetErrorBody(h_error C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func GetErrorBody(h_error C.uintptr_t, buf_ptr *C.char, buf_len C.int) C.int {
 	err := (cgo.Handle(h_error)).Value().(error)
-	return TryMarshalBytes(buf, buflen, []byte(err.Error()))
+	return TryMarshalBytes(buf_ptr, buf_len, []byte(err.Error()))
 }
 
 type IDestructable interface {
@@ -76,33 +72,56 @@ type IDestructable interface {
 
 //export CloseAbyssHandle
 func CloseAbyssHandle(handle C.uintptr_t) {
+	if handle == 0 {
+		watchdog.CountNullHandleRelease()
+		return
+	}
+
 	inner := cgo.Handle(handle).Value()
 	if inner_decon, ok := inner.(IDestructable); ok {
 		inner_decon.Destuct()
 	}
 	cgo.Handle(handle).Delete()
+	watchdog.CountHandleRelease()
 }
 
 //export NewSimplePathResolver
 func NewSimplePathResolver() C.uintptr_t {
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(abyss_host.NewSimplePathResolver()))
 }
 
 //export SimplePathResolver_SetMapping
-func SimplePathResolver_SetMapping(h C.uintptr_t, path_ptr *C.char, path_len C.int, world_ID *C.char) C.int {
+func SimplePathResolver_SetMapping(h C.uintptr_t, path_ptr *C.char, path_len C.int, world_ID *C.char, err_out *C.uintptr_t) {
 	path_resolver, ok := cgo.Handle(h).Value().(*abyss_host.SimplePathResolver)
 	if !ok {
-		return INVALID_HANDLE
+		*err_out = marshalError(errors.New("invalid handle"))
+		return
 	}
-	var world_uuid uuid.UUID
-	data := UnmarshalBytes(world_ID, 16)
-	copy(world_uuid[:], data)
-	if path_len == 0 { //special case: default path
-		path_resolver.SetMapping("", world_uuid)
+
+	var path string
+	if path_len == 0 {
+		path = ""
 	} else {
-		path_resolver.SetMapping(string(UnmarshalBytes(path_ptr, path_len)), world_uuid)
+		path_buf, ok := TryUnmarshalBytes(path_ptr, path_len)
+		if !ok {
+			*err_out = marshalError(errors.New("failed to parse path_buf"))
+			return
+		}
+		path = string(path_buf)
 	}
-	return 0
+
+	var world_uuid uuid.UUID
+	data, ok := TryUnmarshalBytes(world_ID, 16)
+	if !ok {
+		*err_out = marshalError(errors.New("failed to parse world_ID"))
+		return
+	}
+	copy(world_uuid[:], data)
+
+	if !path_resolver.TrySetMapping(path, world_uuid) {
+		*err_out = marshalError(errors.New("mapping from same path already exists"))
+	}
 }
 
 //export SimplePathResolver_DeleteMapping
@@ -111,7 +130,11 @@ func SimplePathResolver_DeleteMapping(h C.uintptr_t, path_ptr *C.char, path_len 
 	if path_len == 0 {
 		path = ""
 	} else {
-		path = string(UnmarshalBytes(path_ptr, path_len))
+		path_buf, ok := TryUnmarshalBytes(path_ptr, path_len)
+		if !ok {
+			return INVALID_ARGUMENTS
+		}
+		path = string(path_buf)
 	}
 	path_resolver, ok := cgo.Handle(h).Value().(*abyss_host.SimplePathResolver)
 	if !ok {
@@ -123,7 +146,12 @@ func SimplePathResolver_DeleteMapping(h C.uintptr_t, path_ptr *C.char, path_len 
 
 //export NewSimpleAbystServer
 func NewSimpleAbystServer(path_ptr *C.char, path_len C.int) C.uintptr_t {
-	path := string(UnmarshalBytes(path_ptr, path_len))
+	path_buf, ok := TryUnmarshalBytes(path_ptr, path_len)
+	if !ok {
+		return 0
+	}
+	path := string(path_buf)
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(&http3.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
@@ -156,7 +184,10 @@ func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_
 		return 0
 	}
 
-	root_priv_key_pem := UnmarshalBytes(root_priv_key_pem_ptr, root_priv_key_pem_len)
+	root_priv_key_pem, ok := TryUnmarshalBytes(root_priv_key_pem_ptr, root_priv_key_pem_len)
+	if !ok {
+		return 0
+	}
 
 	root_priv_key, err := ssh.ParseRawPrivateKey(root_priv_key_pem)
 	if err != nil {
@@ -188,21 +219,22 @@ func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_
 	)
 	go host.ListenAndServe(context.Background())
 
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(host))
 }
 
 //export Host_GetLocalAbyssURL
-func Host_GetLocalAbyssURL(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func Host_GetLocalAbyssURL(h C.uintptr_t, buf_ptr *C.char, buf_len C.int) C.int {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	return TryMarshalBytes(buf, buflen, []byte(host.GetLocalAbyssURL().ToString()))
+	return TryMarshalBytes(buf_ptr, buf_len, []byte(host.GetLocalAbyssURL().ToString()))
 }
 
 //export Host_GetCertificates
-func Host_GetCertificates(h C.uintptr_t, root_cert_buf *C.char, root_cert_len *C.int, hs_key_cert_buf *C.char, hs_key_cert_len *C.int) C.int {
+func Host_GetCertificates(h C.uintptr_t, root_cert_buf_ptr *C.char, root_cert_len *C.int, hs_key_cert_buf_ptr *C.char, hs_key_cert_len *C.int) C.int {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
 	if !ok {
 		return INVALID_HANDLE
@@ -211,9 +243,9 @@ func Host_GetCertificates(h C.uintptr_t, root_cert_buf *C.char, root_cert_len *C
 	host_identity := host.NetworkService.LocalIdentity()
 	root_cert := []byte(host_identity.RootCertificate())
 	hs_cert := []byte(host_identity.HandshakeKeyCertificate())
-	res1 := TryMarshalBytes(root_cert_buf, *root_cert_len, root_cert)
-	res2 := TryMarshalBytes(hs_key_cert_buf, *hs_key_cert_len, hs_cert)
-	if res1 <= 0 || res2 <= 0 {
+	root_cert_buf := TryMarshalBytes(root_cert_buf_ptr, *root_cert_len, root_cert)
+	res2 := TryMarshalBytes(hs_key_cert_buf_ptr, *hs_key_cert_len, hs_cert)
+	if root_cert_buf <= 0 || res2 <= 0 {
 		*root_cert_len = C.int(len(root_cert))
 		*hs_key_cert_len = C.int(len(hs_cert))
 		return INVALID_ARGUMENTS
@@ -223,18 +255,27 @@ func Host_GetCertificates(h C.uintptr_t, root_cert_buf *C.char, root_cert_len *C
 }
 
 //export Host_AppendKnownPeer
-func Host_AppendKnownPeer(h C.uintptr_t, root_cert_buf *C.char, root_cert_len C.int, hs_key_cert_buf *C.char, hs_key_cert_len C.int) C.int {
+func Host_AppendKnownPeer(h C.uintptr_t, root_cert_buf_ptr *C.char, root_cert_len C.int, hs_key_cert_buf_ptr *C.char, hs_key_cert_len C.int, err_out *C.uintptr_t) {
 	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
 	if !ok {
-		return INVALID_HANDLE
+		*err_out = marshalError(errors.New("invalid handle"))
+		return
 	}
 
-	err := host.NetworkService.AppendKnownPeer(string(UnmarshalBytes(root_cert_buf, root_cert_len)), string(UnmarshalBytes(hs_key_cert_buf, hs_key_cert_len)))
-	if err != nil {
-		watchdog.Error(err)
-		return INVALID_ARGUMENTS
+	root_cert_buf, ok := TryUnmarshalBytes(root_cert_buf_ptr, root_cert_len)
+	if !ok {
+		*err_out = marshalError(errors.New("invalid root_cer_buf"))
+		return
 	}
-	return 0
+	hs_key_cert_buf, ok := TryUnmarshalBytes(hs_key_cert_buf_ptr, hs_key_cert_len)
+	if !ok {
+		*err_out = marshalError(errors.New("invalid hs_key_cert_buf"))
+		return
+	}
+	err := host.NetworkService.AppendKnownPeer(string(root_cert_buf), string(hs_key_cert_buf))
+	if err != nil {
+		*err_out = marshalError(err)
+	}
 }
 
 //export Host_OpenOutboundConnection
@@ -244,7 +285,11 @@ func Host_OpenOutboundConnection(h C.uintptr_t, abyss_url_ptr *C.char, abyss_url
 		return INVALID_HANDLE
 	}
 
-	aurl, err := aurl.TryParse(string(UnmarshalBytes(abyss_url_ptr, abyss_url_len)))
+	abyss_url_buf, ok := TryUnmarshalBytes(abyss_url_ptr, abyss_url_len)
+	if !ok {
+		return INVALID_ARGUMENTS
+	}
+	aurl, err := aurl.TryParse(string(abyss_url_buf))
 	if err != nil {
 		return INVALID_ARGUMENTS
 	}
@@ -266,12 +311,17 @@ func Host_OpenWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int) C.uintptr_t {
 		return 0
 	}
 
-	world, err := host.OpenWorld(string(UnmarshalBytes(url_ptr, url_len)))
+	url_buf, ok := TryUnmarshalBytes(url_ptr, url_len)
+	if !ok {
+		return 0
+	}
+	world, err := host.OpenWorld(string(url_buf))
 	if err != nil {
 		watchdog.Error(err)
 		return 0
 	}
 
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(&WorldExport{
 		inner:    world,
 		origin:   host,
@@ -287,7 +337,11 @@ func Host_JoinWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int, timeout_ms C.
 		return 0
 	}
 
-	aurl, err := aurl.TryParse(string(UnmarshalBytes(url_ptr, url_len)))
+	url_buf, ok := TryUnmarshalBytes(url_ptr, url_len)
+	if !ok {
+		return 0
+	}
+	aurl, err := aurl.TryParse(string(url_buf))
 	if err != nil {
 		watchdog.Error(err)
 		return 0
@@ -301,6 +355,7 @@ func Host_JoinWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int, timeout_ms C.
 		return 0
 	}
 
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(&WorldExport{
 		inner:    world,
 		origin:   host,
@@ -314,7 +369,10 @@ func World_GetSessionID(h C.uintptr_t, world_ID_out *C.char) C.int {
 	if !ok {
 		return INVALID_HANDLE
 	}
-	dest := UnmarshalBytes(world_ID_out, 16)
+	dest, ok := TryUnmarshalBytes(world_ID_out, 16)
+	if !ok {
+		return INVALID_ARGUMENTS
+	}
 	world_ID := world.inner.SessionID()
 	copy(dest, world_ID[:])
 	return 0
@@ -331,12 +389,12 @@ type ObjectDeleteData struct {
 }
 
 //export World_GetURL
-func World_GetURL(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func World_GetURL(h C.uintptr_t, buf_ptr *C.char, buf_len C.int) C.int {
 	world, ok := cgo.Handle(h).Value().(*WorldExport)
 	if !ok {
 		return INVALID_HANDLE
 	}
-	return TryMarshalBytes(buf, buflen, []byte(world.inner.URL()))
+	return TryMarshalBytes(buf_ptr, buf_len, []byte(world.inner.URL()))
 }
 
 //export World_WaitEvent
@@ -352,9 +410,11 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 	switch event := event_any.(type) {
 	case abyss.EWorldPeerRequest:
 		*event_type_out = 1
+		watchdog.CountHandleExport()
 		return C.uintptr_t(cgo.NewHandle(&event))
 	case abyss.EWorldPeerReady:
 		*event_type_out = 2
+		watchdog.CountHandleExport()
 		return C.uintptr_t(cgo.NewHandle(event.Peer))
 	case abyss.EPeerObjectAppend:
 		*event_type_out = 3
@@ -370,9 +430,10 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 			}{
 				ID:        hex.EncodeToString(i.ID[:]),
 				Addr:      i.Addr,
-				Transform: [7]float32{},
+				Transform: i.Transform,
 			}
 		}))
+		watchdog.CountHandleExport()
 		return C.uintptr_t(cgo.NewHandle(&ObjectAppendData{
 			peer_hash: event.PeerHash,
 			body_json: string(data),
@@ -382,12 +443,14 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 		data, _ := json.Marshal(functional.Filter(event.ObjectIDs, func(u uuid.UUID) string {
 			return hex.EncodeToString(u[:])
 		}))
+		watchdog.CountHandleExport()
 		return C.uintptr_t(cgo.NewHandle(&ObjectDeleteData{
 			peer_hash: event.PeerHash,
 			body_json: string(data),
 		}))
 	case abyss.EWorldPeerLeave:
 		*event_type_out = 5
+		watchdog.CountHandleExport()
 		return C.uintptr_t(cgo.NewHandle(&event))
 	case abyss.EWorldTerminate:
 		*event_type_out = 6
@@ -400,13 +463,13 @@ func World_WaitEvent(h C.uintptr_t, event_type_out *C.int) C.uintptr_t {
 }
 
 //export WorldPeerRequest_GetHash
-func WorldPeerRequest_GetHash(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func WorldPeerRequest_GetHash(h C.uintptr_t, buf *C.char, buf_len C.int) C.int {
 	event, ok := cgo.Handle(h).Value().(*abyss.EWorldPeerRequest)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	return TryMarshalBytes(buf, buflen, []byte(event.PeerHash))
+	return TryMarshalBytes(buf, buf_len, []byte(event.PeerHash))
 }
 
 //export WorldPeerRequest_Accept
@@ -426,7 +489,11 @@ func WorldPeerRequest_Decline(h C.uintptr_t, code C.int, msg *C.char, msglen C.i
 	if msglen == 0 {
 		msg_str = ""
 	} else {
-		msg_str = string(UnmarshalBytes(msg, msglen))
+		msg_buf, ok := TryUnmarshalBytes(msg, msglen)
+		if !ok {
+			return INVALID_ARGUMENTS
+		}
+		msg_str = string(msg_buf)
 	}
 	event, ok := cgo.Handle(h).Value().(*abyss.EWorldPeerRequest)
 	if !ok {
@@ -438,13 +505,13 @@ func WorldPeerRequest_Decline(h C.uintptr_t, code C.int, msg *C.char, msglen C.i
 }
 
 //export WorldPeer_GetHash
-func WorldPeer_GetHash(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func WorldPeer_GetHash(h C.uintptr_t, buf *C.char, buf_len C.int) C.int {
 	peer, ok := cgo.Handle(h).Value().(abyss.IAbyssPeer)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	return TryMarshalBytes(buf, buflen, []byte(peer.Hash()))
+	return TryMarshalBytes(buf, buf_len, []byte(peer.Hash()))
 }
 
 //export WorldPeer_AppendObjects
@@ -454,7 +521,10 @@ func WorldPeer_AppendObjects(h C.uintptr_t, json_ptr *C.char, json_len C.int) C.
 		return INVALID_HANDLE
 	}
 
-	json_data := UnmarshalBytes(json_ptr, json_len)
+	json_data, ok := TryUnmarshalBytes(json_ptr, json_len)
+	if !ok {
+		return INVALID_ARGUMENTS
+	}
 	var raw_object_infos []struct {
 		ID        string
 		Addr      string
@@ -496,7 +566,10 @@ func WorldPeer_DeleteObjects(h C.uintptr_t, json_ptr *C.char, json_len C.int) C.
 		return INVALID_HANDLE
 	}
 
-	json_data := UnmarshalBytes(json_ptr, json_len)
+	json_data, ok := TryUnmarshalBytes(json_ptr, json_len)
+	if !ok {
+		return INVALID_ARGUMENTS
+	}
 	var raw_object_ids []string
 	err := json.Unmarshal(json_data, &raw_object_ids)
 	if err != nil {
@@ -531,13 +604,13 @@ func WorldPeerObjectAppend_GetHead(h C.uintptr_t, peer_hash_out *C.char, body_le
 }
 
 //export WorldPeerObjectAppend_GetBody
-func WorldPeerObjectAppend_GetBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func WorldPeerObjectAppend_GetBody(h C.uintptr_t, buf *C.char, buf_len C.int) C.int {
 	data, ok := cgo.Handle(h).Value().(*ObjectAppendData)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	return TryMarshalBytes(buf, buflen, []byte(data.body_json))
+	return TryMarshalBytes(buf, buf_len, []byte(data.body_json))
 }
 
 //export WorldPeerObjectDelete_GetHead
@@ -552,23 +625,23 @@ func WorldPeerObjectDelete_GetHead(h C.uintptr_t, peer_hash_out *C.char, body_le
 }
 
 //export WorldPeerObjectDelete_GetBody
-func WorldPeerObjectDelete_GetBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func WorldPeerObjectDelete_GetBody(h C.uintptr_t, buf *C.char, buf_len C.int) C.int {
 	data, ok := cgo.Handle(h).Value().(*ObjectDeleteData)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	return TryMarshalBytes(buf, buflen, []byte(data.body_json))
+	return TryMarshalBytes(buf, buf_len, []byte(data.body_json))
 }
 
 //export WorldPeerLeave_GetHash
-func WorldPeerLeave_GetHash(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func WorldPeerLeave_GetHash(h C.uintptr_t, buf *C.char, buf_len C.int) C.int {
 	event, ok := cgo.Handle(h).Value().(*abyss.EWorldPeerLeave)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	return TryMarshalBytes(buf, buflen, []byte(event.PeerHash))
+	return TryMarshalBytes(buf, buf_len, []byte(event.PeerHash))
 }
 
 //export WorldLeave
@@ -600,12 +673,18 @@ func Host_GetAbystClientConnection(h C.uintptr_t, peer_hash_ptr *C.char, peer_ha
 
 	ctx, ctx_cancel := context.WithTimeout(context.Background(), time.Duration(timeout_ms)*time.Millisecond)
 	defer ctx_cancel()
-	http_client, err := host.GetAbystClientConnection(ctx, string(UnmarshalBytes(peer_hash_ptr, peer_hash_len)))
+
+	peer_hash_buf, ok := TryUnmarshalBytes(peer_hash_ptr, peer_hash_len)
+	if !ok {
+		return 0
+	}
+	http_client, err := host.GetAbystClientConnection(ctx, string(peer_hash_buf))
 	if err != nil {
 		*err_out = marshalError(err)
 		return 0
 	}
 
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(&AbystClientExport{
 		inner: http_client,
 	}))
@@ -631,6 +710,7 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 	case 0:
 		method_string = http.MethodGet
 	default:
+		watchdog.CountHandleExport()
 		return C.uintptr_t(cgo.NewHandle(&AbystResponseExport{
 			inner: &http.Response{
 				Status:     "400 Bad Request",
@@ -643,7 +723,11 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 	if path_len == 0 {
 		path_string = ""
 	} else {
-		path_string = string(UnmarshalBytes(path_ptr, path_len))
+		path_buf, ok := TryUnmarshalBytes(path_ptr, path_len)
+		if !ok {
+			return 0
+		}
+		path_string = string(path_buf)
 	}
 	request, err := http.NewRequest(method_string, "https://a.abyst/"+path_string, nil)
 	if err != nil {
@@ -656,13 +740,14 @@ func AbystClient_Request(h C.uintptr_t, method C.int, path_ptr *C.char, path_len
 		return 0
 	}
 
+	watchdog.CountHandleExport()
 	return C.uintptr_t(cgo.NewHandle(&AbystResponseExport{
 		inner: response,
 	}))
 }
 
 //export AbyssResponse_GetHeaders
-func AbyssResponse_GetHeaders(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func AbyssResponse_GetHeaders(h C.uintptr_t, buf *C.char, buf_len C.int) C.int {
 	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
 	if !ok {
 		return INVALID_HANDLE
@@ -681,9 +766,9 @@ func AbyssResponse_GetHeaders(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 		data["Code"] = 422
 		data["Status"] = "Unprocessable Entity"
 		json_bytes, _ := json.Marshal(data)
-		return TryMarshalBytes(buf, buflen, json_bytes)
+		return TryMarshalBytes(buf, buf_len, json_bytes)
 	}
-	return TryMarshalBytes(buf, buflen, json_bytes)
+	return TryMarshalBytes(buf, buf_len, json_bytes)
 }
 
 //export AbyssResponse_GetContentLength
@@ -701,17 +786,21 @@ func AbyssResponse_GetContentLength(h C.uintptr_t) C.int {
 }
 
 //export AbystResponse_ReadBody
-func AbystResponse_ReadBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
+func AbystResponse_ReadBody(h C.uintptr_t, buf_ptr *C.char, buf_len C.int) C.int {
 	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	if buflen <= 0 || buflen > 1024*1024*1024 { //over 1GiB - must be some error.
+	if buf_len <= 0 || buf_len > 1024*1024*1024 { //over 1GiB - must be some error.
 		return INVALID_ARGUMENTS
 	}
 
-	read_len, err := response.inner.Body.Read(UnmarshalBytes(buf, buflen))
+	buf, ok := TryUnmarshalBytes(buf_ptr, buf_len)
+	if !ok {
+		return INVALID_ARGUMENTS
+	}
+	read_len, err := response.inner.Body.Read(buf)
 	if read_len == 0 && err != nil {
 		return EOF
 	}
@@ -720,17 +809,20 @@ func AbystResponse_ReadBody(h C.uintptr_t, buf *C.char, buflen C.int) C.int {
 }
 
 //export AbystResponse_ReadBodyAll
-func AbystResponse_ReadBodyAll(h C.uintptr_t, buf_ptr *C.char, buflen C.int) C.int {
+func AbystResponse_ReadBodyAll(h C.uintptr_t, buf_ptr *C.char, buf_len C.int) C.int {
 	response, ok := cgo.Handle(h).Value().(*AbystResponseExport)
 	if !ok {
 		return INVALID_HANDLE
 	}
 
-	if int(buflen) < int(response.inner.ContentLength) {
+	if int(buf_len) < int(response.inner.ContentLength) {
 		return BUFFER_OVERFLOW
 	}
 
-	buf := UnmarshalBytes(buf_ptr, buflen)
+	buf, ok := TryUnmarshalBytes(buf_ptr, buf_len)
+	if !ok {
+		return INVALID_ARGUMENTS
+	}
 	readlen := 0
 	for {
 		n, err := response.inner.Body.Read(buf[readlen:])

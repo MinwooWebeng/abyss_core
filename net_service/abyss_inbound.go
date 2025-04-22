@@ -19,6 +19,7 @@ type AbyssInbound struct {
 }
 
 func (h *BetaNetService) PrepareAbyssInbound(ctx context.Context, connection quic.Connection) {
+	//watchdog.Info("inbound detected")
 	result := AbyssInbound{connection, "", nil, nil, errors.New("unknown error")}
 	defer func() {
 		h.abyssInBound <- result
@@ -100,7 +101,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -110,7 +111,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -120,7 +121,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -130,7 +131,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -140,7 +141,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -150,7 +151,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -160,7 +161,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -170,7 +171,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -180,7 +181,7 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
@@ -190,12 +191,12 @@ func (h *AbyssInbound) listenAhmp() {
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- ahmp.INVAL{Err: err}
+				h.AhmpChannel <- &ahmp.INVAL{Err: err}
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
 		default:
-			h.AhmpChannel <- ahmp.INVAL{Err: errors.New("unknown AHMP message type")}
+			h.AhmpChannel <- &ahmp.INVAL{Err: errors.New("unknown AHMP message type")}
 			continue
 		}
 	}

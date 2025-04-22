@@ -17,8 +17,11 @@ func TryMarshalBytes(buf *C.char, buflen C.int, data []byte) C.int {
 	return C.int(len(data))
 }
 
-func UnmarshalBytes(buf *C.char, buflen C.int) []byte {
-	return (*[1 << 28]byte)(unsafe.Pointer(buf))[:buflen]
+func TryUnmarshalBytes(buf *C.char, buflen C.int) ([]byte, bool) {
+	if buf == nil || buflen == 0 {
+		return []byte{}, false
+	}
+	return (*[1 << 28]byte)(unsafe.Pointer(buf))[:buflen], true
 }
 
 func DebugLog(content string) {

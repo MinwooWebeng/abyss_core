@@ -18,22 +18,28 @@ func NewSimplePathResolver() *SimplePathResolver {
 	}
 }
 
-func (r *SimplePathResolver) SetMapping(path string, dest uuid.UUID) {
+func (r *SimplePathResolver) TrySetMapping(path string, dest uuid.UUID) bool {
 	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
+	if _, ok := r.pathMap[path]; ok {
+		return false
+	}
 	r.pathMap[path] = dest
-	r.mtx.Unlock()
+	return true
 }
 
 func (r *SimplePathResolver) DeleteMapping(path string) {
 	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	delete(r.pathMap, path)
-	r.mtx.Unlock()
 }
 
 func (r *SimplePathResolver) PathToSessionID(path string, _ string) (uuid.UUID, bool) {
 	r.mtx.Lock()
-	res, ok := r.pathMap[path]
-	r.mtx.Unlock()
+	defer r.mtx.Unlock()
 
+	res, ok := r.pathMap[path]
 	return res, ok
 }

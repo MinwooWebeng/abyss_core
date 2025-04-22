@@ -19,6 +19,7 @@ type AbyssOutbound struct {
 }
 
 func (h *BetaNetService) PrepareAbyssOutbound(ctx context.Context, connection quic.Connection, peer_hash string, addresses []*net.UDPAddr) {
+	//watchdog.Info("outbound detected")
 	result := AbyssOutbound{connection, nil, nil, nil, errors.New("unknown error")}
 	defer func() {
 		h.abyssOutBound <- result

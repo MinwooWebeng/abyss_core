@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -16,6 +15,7 @@ import (
 
 	aurl "abyss_core/aurl"
 	abyss "abyss_core/interfaces"
+	"abyss_core/watchdog"
 )
 
 type BetaNetService struct {
@@ -196,7 +196,8 @@ func (h *BetaNetService) constructingAbyssPeers(ctx context.Context) {
 			return
 		case inbound := <-h.abyssInBound:
 			if inbound.err != nil {
-				fmt.Println(h.localIdentity.root_id_hash + "(inbound): " + inbound.err.Error())
+				watchdog.Error(inbound.err)
+				//fmt.Println(h.localIdentity.root_id_hash + "(inbound): " + inbound.err.Error())
 				//TODO: handle faulty inbound connection.
 				//vulnerable
 				if inbound.connection != nil {
@@ -204,15 +205,18 @@ func (h *BetaNetService) constructingAbyssPeers(ctx context.Context) {
 				}
 				continue
 			}
+			//watchdog.Info("inbound established")
 
 			if outbound, ok := abyssOutParts[inbound.peer_hash]; ok {
+				h.NotifyEstablishedPeerAddress(inbound.peer_hash, outbound.connection.RemoteAddr().(*net.UDPAddr))
 				h.abyssPeerCH <- NewAbyssPeer(h, inbound, outbound)
 			} else {
 				abyssInParts[inbound.peer_hash] = inbound
 			}
 		case outbound := <-h.abyssOutBound:
 			if outbound.err != nil {
-				fmt.Println(h.localIdentity.root_id_hash + "(outbound): " + outbound.err.Error())
+				watchdog.Error(outbound.err)
+				//fmt.Println(h.localIdentity.root_id_hash + "(outbound): " + outbound.err.Error())
 				//TODO: handle connection failure.
 				//vulnerable
 				if outbound.connection != nil {
@@ -220,8 +224,10 @@ func (h *BetaNetService) constructingAbyssPeers(ctx context.Context) {
 				}
 				continue
 			}
+			//watchdog.Info("outbound established")
 
 			if inbound, ok := abyssInParts[outbound.peer_identity.root_id_hash]; ok {
+				h.NotifyEstablishedPeerAddress(outbound.peer_identity.root_id_hash, outbound.connection.RemoteAddr().(*net.UDPAddr))
 				h.abyssPeerCH <- NewAbyssPeer(h, inbound, outbound)
 			} else {
 				abyssOutParts[outbound.peer_identity.root_id_hash] = outbound
@@ -283,12 +289,12 @@ func (h *BetaNetService) ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) 
 	}
 
 	h.outbound_ongoing_mtx.Lock()
+	defer h.outbound_ongoing_mtx.Unlock()
+
 	if _, ok := h.outbound_ongoing[url.Hash]; ok {
-		h.outbound_ongoing_mtx.Unlock()
 		return nil
 	}
 	h.outbound_ongoing[url.Hash] = nil //now raise outbound connection ongoing flag
-	h.outbound_ongoing_mtx.Unlock()
 
 	go h._connectAbyss(ctx, candidate_addresses, url.Hash)
 	return nil
@@ -307,10 +313,21 @@ func (h *BetaNetService) GetAbyssPeerChannel() chan abyss.IANDPeer {
 	return h.abyssPeerCH
 }
 
+func (h *BetaNetService) NotifyEstablishedPeerAddress(peer_hash string, addr *net.UDPAddr) {
+	h.outbound_ongoing_mtx.Lock()
+	defer h.outbound_ongoing_mtx.Unlock()
+
+	if addr, ok := h.outbound_ongoing[peer_hash]; !(ok && addr == nil) {
+		panic("just connected peer now missing or already notified")
+	}
+	h.outbound_ongoing[peer_hash] = addr
+}
+
 func (h *BetaNetService) CloseAbyssPeer(peer abyss.IANDPeer) {
 	h.outbound_ongoing_mtx.Lock()
+	defer h.outbound_ongoing_mtx.Unlock()
+
 	delete(h.outbound_ongoing, peer.IDHash())
-	h.outbound_ongoing_mtx.Unlock()
 }
 
 func (h *BetaNetService) ConnectAbyst(ctx context.Context, peer_hash string) (quic.Connection, error) {

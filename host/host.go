@@ -213,6 +213,7 @@ func (h *AbyssHost) listenLoop() {
 			h.listen_done <- true
 			return
 		case peer := <-accept_ch:
+			watchdog.Info("new peer: " + peer.IDHash())
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

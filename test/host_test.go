@@ -110,7 +110,7 @@ func TestHost(t *testing.T) {
 		return
 	}
 	fmt.Println("[" + hostA.GetLocalAbyssURL().Hash + "] Opened World: " + A_world.SessionID().String())
-	hostA_pathMap.SetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
+	hostA_pathMap.TrySetMapping("/home", A_world.SessionID()) //this opens the world for join from A's side
 	A_world_fin := make(chan bool, 1)
 	go printWorldEvents(time_begin, "["+hostA.GetLocalAbyssURL().Hash+"]", hostA, A_world, 30000, make(chan string, 1), A_world_fin)
 
@@ -232,7 +232,7 @@ func (a *AutonomousHost) Run(ctx context.Context, time_begin time.Time, done_ch 
 				}
 				dwell_time := rand.Intn(10000)
 				fmt.Println(_time_passed(time_begin) + a.log_prefix + " Opened world: " + world.SessionID().String() + "/" + world_name + " -(" + strconv.Itoa(dwell_time) + "ms)")
-				a.abyss_pathMap.SetMapping("/"+world_name, world.SessionID())
+				a.abyss_pathMap.TrySetMapping("/"+world_name, world.SessionID())
 
 				raw_aurl := a.abyss_host.GetLocalAbyssURL()
 				raw_aurl.Path = "/" + world_name
@@ -268,7 +268,7 @@ func (a *AutonomousHost) Run(ctx context.Context, time_begin time.Time, done_ch 
 				dwell_time := rand.Intn(10000)
 				fmt.Println(_time_passed(time_begin) + a.log_prefix + " Joined world: " + world.SessionID().String() + " -(" + strconv.Itoa(dwell_time) + "ms)")
 				world_name := RandomString()
-				a.abyss_pathMap.SetMapping("/"+world_name, world.SessionID())
+				a.abyss_pathMap.TrySetMapping("/"+world_name, world.SessionID())
 
 				raw_aurl := a.abyss_host.GetLocalAbyssURL()
 				raw_aurl.Path = "/" + world_name
@@ -348,7 +348,7 @@ func TestObjectSharing(t *testing.T) {
 
 	A_world, _ := hostA.OpenWorld("http://a.world.com")
 	a_world_ch := A_world.GetEventChannel()
-	hostA_pathMap.SetMapping("home", A_world.SessionID()) //this opens the world for join from A's side
+	hostA_pathMap.TrySetMapping("home", A_world.SessionID()) //this opens the world for join from A's side
 
 	<-time.After(100 * time.Millisecond)
 	hostA.OpenOutboundConnection(hostB.GetLocalAbyssURL())
@@ -407,7 +407,7 @@ func TestKnownPeerUpdate(t *testing.T) {
 	)
 
 	B_world, _ := B_host.OpenWorld("http://b.world.com")
-	B_pathmap.SetMapping("/home", B_world.SessionID())
+	B_pathmap.TrySetMapping("/home", B_world.SessionID())
 	world_aurl := B_host.GetLocalAbyssURL()
 	world_aurl.Path = "/home"
 
