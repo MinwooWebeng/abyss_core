@@ -1,8 +1,9 @@
 package interfaces
 
 import (
-	"abyss_core/aurl"
 	"context"
+
+	"github.com/MinwooWebeng/abyss_core/aurl"
 
 	"github.com/google/uuid"
 	"github.com/quic-go/quic-go/http3"

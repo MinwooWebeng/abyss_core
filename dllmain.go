@@ -18,13 +18,19 @@ import (
 	"runtime/cgo"
 	"time"
 
-	abyss_and "abyss_core/and"
-	"abyss_core/aurl"
-	abyss_host "abyss_core/host"
-	abyss "abyss_core/interfaces"
-	abyss_net "abyss_core/net_service"
-	"abyss_core/tools/functional"
-	"abyss_core/watchdog"
+	"github.com/MinwooWebeng/abyss_core/watchdog"
+
+	"github.com/MinwooWebeng/abyss_core/tools/functional"
+
+	abyss_host "github.com/MinwooWebeng/abyss_core/host"
+
+	abyss_net "github.com/MinwooWebeng/abyss_core/net_service"
+
+	abyss_and "github.com/MinwooWebeng/abyss_core/and"
+
+	"github.com/MinwooWebeng/abyss_core/aurl"
+
+	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
 
 	"github.com/google/uuid"
 	"github.com/quic-go/quic-go/http3"

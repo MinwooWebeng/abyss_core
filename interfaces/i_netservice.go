@@ -1,9 +1,10 @@
 package interfaces
 
 import (
-	"abyss_core/aurl"
 	"context"
 	"net"
+
+	"github.com/MinwooWebeng/abyss_core/aurl"
 
 	"github.com/quic-go/quic-go"
 )

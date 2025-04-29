@@ -1,8 +1,8 @@
 package host
 
 import (
-	abyss_and "abyss_core/and"
-	abyss_net "abyss_core/net_service"
+	abyss_and "github.com/MinwooWebeng/abyss_core/and"
+	abyss_net "github.com/MinwooWebeng/abyss_core/net_service"
 
 	"github.com/quic-go/quic-go/http3"
 )

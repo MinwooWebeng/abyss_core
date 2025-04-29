@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"abyss_core/aurl"
-	abyss "abyss_core/interfaces"
+	"github.com/MinwooWebeng/abyss_core/aurl"
+	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
 )
 
 const DEBUG = true

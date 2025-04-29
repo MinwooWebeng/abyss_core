@@ -1,7 +1,7 @@
 package interfaces
 
 import (
-	"abyss_core/aurl"
+	"github.com/MinwooWebeng/abyss_core/aurl"
 
 	"github.com/google/uuid"
 )

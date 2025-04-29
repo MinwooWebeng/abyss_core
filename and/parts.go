@@ -3,7 +3,7 @@ package and
 import (
 	"github.com/google/uuid"
 
-	abyss "abyss_core/interfaces"
+	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
 )
 
 const (

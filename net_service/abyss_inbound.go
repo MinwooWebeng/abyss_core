@@ -7,7 +7,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/quic-go/quic-go"
 
-	"abyss_core/ahmp"
+	"github.com/MinwooWebeng/abyss_core/ahmp"
 )
 
 type AbyssInbound struct {

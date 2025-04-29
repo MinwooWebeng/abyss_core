@@ -1,10 +1,11 @@
 package ahmp
 
 import (
-	"abyss_core/aurl"
-	abyss "abyss_core/interfaces"
-	"abyss_core/tools/functional"
 	"errors"
+
+	"github.com/MinwooWebeng/abyss_core/aurl"
+	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
+	"github.com/MinwooWebeng/abyss_core/tools/functional"
 
 	"github.com/google/uuid"
 )

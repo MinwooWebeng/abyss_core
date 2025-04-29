@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"abyss_core/aurl"
-	abyss_host "abyss_core/host"
-	abyss "abyss_core/interfaces"
-	"abyss_core/tools/functional"
+	"github.com/MinwooWebeng/abyss_core/aurl"
+	abyss_host "github.com/MinwooWebeng/abyss_core/host"
+	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
+	"github.com/MinwooWebeng/abyss_core/tools/functional"
 
 	"github.com/google/uuid"
 )
