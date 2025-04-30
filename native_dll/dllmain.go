@@ -212,7 +212,12 @@ func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_
 		return 0
 	}
 
-	net_service, err := abyss_net.NewBetaNetService(root_priv_key_casted, abyss_net.NewBetaAddressSelector(), abyst_server)
+	addr_selector, err := abyss_net.NewBetaAddressSelector()
+	if err != nil {
+		watchdog.Error(err)
+		return 0
+	}
+	net_service, err := abyss_net.NewBetaNetService(root_priv_key_casted, addr_selector, abyst_server)
 	if err != nil {
 		watchdog.Error(err)
 		return 0

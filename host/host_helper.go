@@ -7,10 +7,13 @@ import (
 	"github.com/quic-go/quic-go/http3"
 )
 
-func NewBetaAbyssHost(root_private_key abyss_net.PrivateKey, abyst_server *http3.Server) (*AbyssHost, *SimplePathResolver) {
-	address_selector := abyss_net.NewBetaAddressSelector()
+func NewBetaAbyssHost(root_private_key abyss_net.PrivateKey, abyst_server *http3.Server) (*AbyssHost, *SimplePathResolver, error) {
+	address_selector, err := abyss_net.NewBetaAddressSelector()
+	if err != nil {
+		return nil, nil, err
+	}
 	path_resolver := NewSimplePathResolver()
 	netserv, _ := abyss_net.NewBetaNetService(root_private_key, address_selector, abyst_server)
 
-	return NewAbyssHost(netserv, abyss_and.NewAND(netserv.LocalAURL().Hash), path_resolver), path_resolver
+	return NewAbyssHost(netserv, abyss_and.NewAND(netserv.LocalAURL().Hash), path_resolver), path_resolver, nil
 }

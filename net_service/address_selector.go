@@ -1,6 +1,7 @@
 package net_service
 
 import (
+	"errors"
 	"net"
 	"sync"
 )
@@ -12,23 +13,42 @@ type BetaAddressSelector struct {
 	mtx *sync.Mutex
 }
 
-func NewBetaAddressSelector() *BetaAddressSelector {
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{
-		IP:   net.IPv4(8, 8, 8, 8), // Google's public DNS as an example
-		Port: 53,
-	})
+func NewBetaAddressSelector() (*BetaAddressSelector, error) {
+	interfaces, err := net.Interfaces()
 	if err != nil {
-		panic("no network interface detected")
+		return nil, err
 	}
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	conn.Close()
+	for _, i := range interfaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			return nil, err
+		}
 
-	return &BetaAddressSelector{
-		localAddr.IP,
-		net.IPv4zero,
-		new(sync.Mutex),
+		for _, addr := range addrs {
+			var ip net.IP
+
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			// Skip loopback and non-IPv4 addresses
+			if ip == nil || ip.IsLoopback() || ip.To4() == nil {
+				continue
+			}
+
+			return &BetaAddressSelector{
+				ip,
+				net.IPv4zero,
+				new(sync.Mutex),
+			}, nil
+		}
 	}
+
+	return nil, errors.New("no network interface available")
 }
 
 func (s *BetaAddressSelector) SetPublicIP(ip net.IP) {
