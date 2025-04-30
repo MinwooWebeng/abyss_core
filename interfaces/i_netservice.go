@@ -40,6 +40,7 @@ type INetworkService interface {
 }
 
 type IAddressSelector interface {
+	LocalPrivateIPAddr() net.IP
 	FilterAddressCandidates(addresses []*net.UDPAddr) []*net.UDPAddr
 }
 

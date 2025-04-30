@@ -36,9 +36,11 @@ func NewBetaAddressSelector() (*BetaAddressSelector, error) {
 			}
 
 			// Skip loopback and non-IPv4 addresses
-			if ip == nil || ip.IsLoopback() || ip.To4() == nil {
+			if ip == nil || ip.IsLoopback() || ip.To4() == nil || ip.IsLinkLocalUnicast() {
 				continue
 			}
+
+			//fmt.Println("ffff: " + ip.String())
 
 			return &BetaAddressSelector{
 				ip,
@@ -55,6 +57,10 @@ func (s *BetaAddressSelector) SetPublicIP(ip net.IP) {
 	s.mtx.Lock()
 	s.localPublicAddr = ip
 	s.mtx.Unlock()
+}
+
+func (s *BetaAddressSelector) LocalPrivateIPAddr() net.IP {
+	return s.localPrivateAddr
 }
 
 func (s *BetaAddressSelector) FilterAddressCandidates(addresses []*net.UDPAddr) []*net.UDPAddr {

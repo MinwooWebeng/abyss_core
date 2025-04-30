@@ -46,19 +46,19 @@ type BetaNetService struct {
 	abystServer  *http3.Server
 }
 
-func _getLocalIP() (string, error) {
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{
-		IP:   net.IPv4(8, 8, 8, 8), // Google's public DNS as an example
-		Port: 53,
-	})
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close()
+// func _getLocalIP() (string, error) {
+// 	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{
+// 		IP:   net.IPv4(8, 8, 8, 8), // Google's public DNS as an example
+// 		Port: 53,
+// 	})
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	defer conn.Close()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return localAddr.IP.String(), nil
-}
+// 	localAddr := conn.LocalAddr().(*net.UDPAddr)
+// 	return localAddr.IP.String(), nil
+// }
 
 func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAddressSelector, abyst_server *http3.Server) (*BetaNetService, error) {
 	result := new(BetaNetService)
@@ -86,10 +86,7 @@ func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAdd
 	result.quicConf = NewDefaultQuicConf()
 
 	local_port := strconv.Itoa(udpConn.LocalAddr().(*net.UDPAddr).Port)
-	local_ip, err := _getLocalIP()
-	if err != nil {
-		return nil, err
-	}
+	local_ip := address_selector.LocalPrivateIPAddr().String()
 	result.local_aurl, err = aurl.TryParse("abyss:" +
 		root_secret.IDHash() +
 		":" + local_ip + ":" + local_port +
