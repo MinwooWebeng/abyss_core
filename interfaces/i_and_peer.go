@@ -37,7 +37,7 @@ type IANDPeer interface {
 	TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool
 	TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session ANDPeerSession) bool
 	TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool
-	TrySendSNB(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
+	TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
 	TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
 	TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool
 

@@ -17,7 +17,7 @@ type RawSessionInfoForDiscovery struct {
 	HandshakeKeyCertificateDer []byte
 }
 
-type RawSessionInfoForSNB struct {
+type RawSessionInfoForSJN struct {
 	PeerHash  string
 	SessionID string
 }
@@ -28,7 +28,7 @@ const (
 	JDN_T
 	JNI_T
 	MEM_T
-	SNB_T
+	SJN_T
 	CRR_T
 	RST_T
 
@@ -145,13 +145,13 @@ func (r *RawMEM) TryParse() (*MEM, error) {
 	return &MEM{ssid, rsid}, nil
 }
 
-type RawSNB struct {
+type RawSJN struct {
 	SenderSessionID string
 	RecverSessionID string
-	MemberInfos     []RawSessionInfoForSNB
+	MemberInfos     []RawSessionInfoForSJN
 }
 
-func (r *RawSNB) TryParse() (*SNB, error) {
+func (r *RawSJN) TryParse() (*SJN, error) {
 	ssid, err := uuid.Parse(r.SenderSessionID)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (r *RawSNB) TryParse() (*SNB, error) {
 		return nil, err
 	}
 	infos, _, err := functional.Filter_until_err(r.MemberInfos,
-		func(info_raw RawSessionInfoForSNB) (abyss.ANDPeerSessionInfo, error) {
+		func(info_raw RawSessionInfoForSJN) (abyss.ANDPeerSessionInfo, error) {
 			id, err := uuid.Parse(info_raw.SessionID)
 			return abyss.ANDPeerSessionInfo{
 				PeerHash:  info_raw.PeerHash,
@@ -171,13 +171,13 @@ func (r *RawSNB) TryParse() (*SNB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SNB{ssid, rsid, infos}, nil
+	return &SJN{ssid, rsid, infos}, nil
 }
 
 type RawCRR struct {
 	SenderSessionID string
 	RecverSessionID string
-	MemberInfos     []RawSessionInfoForSNB
+	MemberInfos     []RawSessionInfoForSJN
 }
 
 func (r *RawCRR) TryParse() (*CRR, error) {
@@ -190,7 +190,7 @@ func (r *RawCRR) TryParse() (*CRR, error) {
 		return nil, err
 	}
 	infos, _, err := functional.Filter_until_err(r.MemberInfos,
-		func(info_raw RawSessionInfoForSNB) (abyss.ANDPeerSessionInfo, error) {
+		func(info_raw RawSessionInfoForSJN) (abyss.ANDPeerSessionInfo, error) {
 			id, err := uuid.Parse(info_raw.SessionID)
 			return abyss.ANDPeerSessionInfo{
 				PeerHash:  info_raw.PeerHash,

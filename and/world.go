@@ -2,6 +2,8 @@ package and
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -25,6 +27,7 @@ const (
 type ANDPeerSessionInfo struct {
 	s     abyss.ANDPeerSession
 	state int
+	t_mem time.Time
 	sjnp  bool //is sjn suppressed
 	sjnc  int  //sjn receive count
 }
@@ -59,6 +62,10 @@ func NewWorldOpen(local_session_id uuid.UUID, world_url string, connected_member
 		Type:           abyss.ANDJoinSuccess,
 		LocalSessionID: result.lsid,
 		Text:           world_url,
+	}
+	result.ech <- abyss.NeighborEvent{
+		Type:  abyss.ANDTimerRequest,
+		Value: rand.Intn(300),
 	}
 	return result
 }
@@ -97,6 +104,10 @@ func NewWorldJoin(local_session_id uuid.UUID, target *aurl.AURL, connected_membe
 		info.s.Peer.TrySendJN(result.lsid, target.Path)
 	}
 
+	result.ech <- abyss.NeighborEvent{
+		Type:  abyss.ANDTimerRequest,
+		Value: rand.Intn(300),
+	}
 	return result
 }
 
@@ -254,11 +265,12 @@ func (w *ANDWorld) MEM(peer_session abyss.ANDPeerSession) {
 			LocalSessionID: w.lsid,
 			ANDPeerSession: info.s,
 		}
+		info.t_mem = time.Now()
 		info.state = WS_MEM
 	case WS_MEM:
 	}
 }
-func (w *ANDWorld) SNB(peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) {
+func (w *ANDWorld) SJN(peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) {
 	info := w.peers[peer_session.Peer.IDHash()]
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
@@ -267,13 +279,13 @@ func (w *ANDWorld) SNB(peer_session abyss.ANDPeerSession, member_infos []abyss.A
 	switch info.state {
 	case WS_MEM:
 		for _, mem_info := range member_infos {
-			w.SNB_MEMS(peer_session, mem_info)
+			w.SJN_MEMS(peer_session, mem_info)
 		}
 	default:
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
 	}
 }
-func (w *ANDWorld) SNB_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerSessionInfo) {
+func (w *ANDWorld) SJN_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerSessionInfo) {
 	info := w.peers[mem_info.PeerHash]
 	if info.s.PeerSessionID != mem_info.SessionID {
 		return
@@ -418,6 +430,7 @@ func (w *ANDWorld) AcceptSession(peer_session abyss.ANDPeerSession) {
 			LocalSessionID: w.lsid,
 			ANDPeerSession: info.s,
 		}
+		info.t_mem = time.Now()
 		info.state = WS_MEM
 	case WS_TMEM:
 	case WS_MEM:
@@ -444,6 +457,35 @@ func (w *ANDWorld) DeclineSession(peer_session abyss.ANDPeerSession, code int, m
 	}
 }
 func (w *ANDWorld) TimerExpire() {
+	sjn_mem := make([]abyss.ANDPeerSessionInfo, 0)
+	for _, info := range w.peers {
+		if info.state != WS_MEM ||
+			time.Since(info.t_mem) < time.Second ||
+			info.sjnp || info.sjnc > 3 {
+			continue
+		}
+		sjn_mem = append(sjn_mem, abyss.ANDPeerSessionInfo{
+			PeerHash:  info.s.Peer.IDHash(),
+			SessionID: info.s.PeerSessionID,
+		})
+		info.sjnc++
+	}
+
+	member_count := 0
+	for _, info := range w.peers {
+		if info.state != WS_MEM {
+			continue
+		}
+		member_count++
+		if len(sjn_mem) != 0 {
+			info.s.Peer.TrySendSJN(w.lsid, info.s.PeerSessionID, sjn_mem)
+		}
+	}
+
+	w.ech <- abyss.NeighborEvent{
+		Type:  abyss.ANDTimerRequest,
+		Value: rand.Intn(300 * (member_count + 1)),
+	}
 }
 
 func (w *ANDWorld) RemovePeer(peer abyss.IANDPeer) {

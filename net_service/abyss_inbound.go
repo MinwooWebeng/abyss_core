@@ -145,9 +145,9 @@ func (h *AbyssInbound) listenAhmp() {
 				continue
 			}
 			h.AhmpChannel <- parsed_msg
-		case ahmp.SNB_T:
-			//fmt.Println("receiving SNB")
-			var raw_msg ahmp.RawSNB
+		case ahmp.SJN_T:
+			//fmt.Println("receiving SJN")
+			var raw_msg ahmp.RawSJN
 			h.cbor_decoder.Decode(&raw_msg)
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {

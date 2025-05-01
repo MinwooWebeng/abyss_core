@@ -179,7 +179,7 @@ func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 	world.MEM(peer_session)
 	return 0
 }
-func (a *AND) SNB(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
+func (a *AND) SJN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -187,7 +187,7 @@ func (a *AND) SNB(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	if !ok {
 		return 0
 	}
-	world.SNB(peer_session, member_infos)
+	world.SJN(peer_session, member_infos)
 	return 0
 }
 func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) abyss.ANDERROR {

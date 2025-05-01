@@ -234,8 +234,8 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 				and_result = h.neighborDiscoveryAlgorithm.JNI(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Neighbor)
 			case *ahmp.MEM:
 				and_result = h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
-			case *ahmp.SNB:
-				and_result = h.neighborDiscoveryAlgorithm.SNB(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.MemberInfos)
+			case *ahmp.SJN:
+				and_result = h.neighborDiscoveryAlgorithm.SJN(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.MemberInfos)
 			case *ahmp.CRR:
 				and_result = h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.MemberInfos)
 			case *ahmp.RST:

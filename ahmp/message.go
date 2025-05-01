@@ -30,7 +30,7 @@ type MEM struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
 }
-type SNB struct {
+type SJN struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
 	MemberInfos     []abyss.ANDPeerSessionInfo
