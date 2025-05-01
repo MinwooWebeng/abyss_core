@@ -33,6 +33,7 @@ type ANDPeerSessionInfo struct {
 }
 
 type ANDWorld struct {
+	local string //local hash
 	lsid  uuid.UUID
 	path  string                         //join path
 	wurl  string                         //world url
@@ -42,8 +43,9 @@ type ANDWorld struct {
 	is_closed bool
 }
 
-func NewWorldOpen(local_session_id uuid.UUID, world_url string, connected_members map[string]abyss.IANDPeer, event_ch chan abyss.NeighborEvent) *ANDWorld {
+func NewWorldOpen(local_hash string, local_session_id uuid.UUID, world_url string, connected_members map[string]abyss.IANDPeer, event_ch chan abyss.NeighborEvent) *ANDWorld {
 	result := &ANDWorld{
+		local: local_hash,
 		lsid:  local_session_id,
 		wurl:  world_url,
 		peers: make(map[string]*ANDPeerSessionInfo),
@@ -71,8 +73,9 @@ func NewWorldOpen(local_session_id uuid.UUID, world_url string, connected_member
 	return result
 }
 
-func NewWorldJoin(local_session_id uuid.UUID, target *aurl.AURL, connected_members map[string]abyss.IANDPeer, event_ch chan abyss.NeighborEvent) *ANDWorld {
+func NewWorldJoin(local_hash string, local_session_id uuid.UUID, target *aurl.AURL, connected_members map[string]abyss.IANDPeer, event_ch chan abyss.NeighborEvent) *ANDWorld {
 	result := &ANDWorld{
+		local: local_hash,
 		lsid:  local_session_id,
 		path:  target.Path,
 		peers: make(map[string]*ANDPeerSessionInfo),
@@ -195,6 +198,10 @@ func (w *ANDWorld) JNI(peer_session abyss.ANDPeerSession, member_info abyss.ANDF
 	}
 }
 func (w *ANDWorld) JNI_MEMS(mem_info abyss.ANDFullPeerSessionInfo) {
+	if mem_info.AURL.Hash == w.local {
+		return
+	}
+
 	info, ok := w.peers[mem_info.AURL.Hash]
 	if !ok {
 		w.peers[mem_info.AURL.Hash] = &ANDPeerSessionInfo{
@@ -288,6 +295,10 @@ func (w *ANDWorld) SJN(peer_session abyss.ANDPeerSession, member_infos []abyss.A
 	}
 }
 func (w *ANDWorld) SJN_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerSessionInfo) {
+	if mem_info.PeerHash == w.local {
+		return
+	}
+
 	info, ok := w.peers[mem_info.PeerHash]
 	if !ok {
 		origin.Peer.TrySendCRR(w.lsid, origin.PeerSessionID, []abyss.ANDPeerSessionInfo{mem_info})
@@ -320,6 +331,10 @@ func (w *ANDWorld) CRR(peer_session abyss.ANDPeerSession, member_infos []abyss.A
 	}
 }
 func (w *ANDWorld) CRR_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerSessionInfo) {
+	if mem_info.PeerHash == w.local {
+		return
+	}
+
 	info := w.peers[mem_info.PeerHash]
 	if info.s.PeerSessionID != mem_info.SessionID {
 		return

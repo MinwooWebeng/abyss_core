@@ -61,7 +61,7 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
-	world := NewWorldOpen(local_session_id, world_url, a.peers, a.eventCh)
+	world := NewWorldOpen(a.local_hash, local_session_id, world_url, a.peers, a.eventCh)
 	a.worlds[world.lsid] = world
 	return 0
 }
@@ -70,7 +70,7 @@ func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
-	world := NewWorldJoin(local_session_id, abyss_url, a.peers, a.eventCh)
+	world := NewWorldJoin(a.local_hash, local_session_id, abyss_url, a.peers, a.eventCh)
 	a.worlds[world.lsid] = world
 	return 0
 }
