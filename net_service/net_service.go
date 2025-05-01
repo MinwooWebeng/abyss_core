@@ -126,9 +126,9 @@ func NewDefaultTlsConf(tls_identity *TLSIdentity) *tls.Config {
 
 func NewDefaultQuicConf() *quic.Config {
 	return &quic.Config{
-		MaxIdleTimeout:                time.Minute * 10,
+		MaxIdleTimeout:                time.Minute * 30,
 		AllowConnectionWindowIncrease: func(conn quic.Connection, delta uint64) bool { return true },
-		KeepAlivePeriod:               time.Minute * 3,
+		KeepAlivePeriod:               time.Second * 20,
 		Allow0RTT:                     true,
 		EnableDatagrams:               true,
 	}

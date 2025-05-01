@@ -1,7 +1,6 @@
 package and
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -311,7 +310,6 @@ func (w *ANDWorld) SJN_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerS
 	case WS_JNI, WS_RMEM, WS_TMEM, WS_MEM:
 		info.sjnc++
 	default:
-		fmt.Println(info.state)
 		origin.Peer.TrySendCRR(w.lsid, origin.PeerSessionID, []abyss.ANDPeerSessionInfo{mem_info})
 	}
 }
