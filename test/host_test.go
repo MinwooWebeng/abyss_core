@@ -362,7 +362,11 @@ func TestObjectSharing(t *testing.T) {
 	join_url := hostA.GetLocalAbyssURL()
 	join_url.Path = "home"
 	join_ctx, join_ctx_cancel := context.WithTimeout(context.Background(), time.Second)
-	B_A_world, _ := hostB.JoinWorld(join_ctx, join_url)
+	B_A_world, err := hostB.JoinWorld(join_ctx, join_url)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
 	join_ctx_cancel()
 	b_world_ch := B_A_world.GetEventChannel()
 

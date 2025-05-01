@@ -46,20 +46,6 @@ type BetaNetService struct {
 	abystServer  *http3.Server
 }
 
-// func _getLocalIP() (string, error) {
-// 	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{
-// 		IP:   net.IPv4(8, 8, 8, 8), // Google's public DNS as an example
-// 		Port: 53,
-// 	})
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	defer conn.Close()
-
-// 	localAddr := conn.LocalAddr().(*net.UDPAddr)
-// 	return localAddr.IP.String(), nil
-// }
-
 func NewBetaNetService(local_private_key PrivateKey, address_selector abyss.IAddressSelector, abyst_server *http3.Server) (*BetaNetService, error) {
 	result := new(BetaNetService)
 

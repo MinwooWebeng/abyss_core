@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/MinwooWebeng/abyss_core/ahmp"
-	"github.com/MinwooWebeng/abyss_core/and"
 	"github.com/MinwooWebeng/abyss_core/aurl"
 	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
 	"github.com/MinwooWebeng/abyss_core/tools/functional"
@@ -103,10 +102,6 @@ func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
 		panic("fatal:::AND corrupted while opening world")
 	}
 
-	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
-		panic("AND sanity check failed!!! :: " + err.Error())
-	}
-
 	//wait for join result.
 	join_res := <-join_res_ch
 
@@ -119,6 +114,11 @@ func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
 func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.IAbyssWorld, error) {
 	local_session_id := uuid.New()
 
+	join_res_ch := make(chan *WorldCreationEvent, 1)
+	h.join_q_mtx.Lock()
+	h.join_queue[local_session_id] = join_res_ch
+	h.join_q_mtx.Unlock()
+
 	retval := h.neighborDiscoveryAlgorithm.JoinWorld(local_session_id, abyss_url)
 	if retval == abyss.EINVAL {
 		return nil, errors.New("failed to join world::unknown error")
@@ -126,25 +126,11 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 		panic("fatal:::AND corrupted while joining world")
 	}
 
-	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
-		panic("AND sanity check failed!!! :: " + err.Error())
-	}
-
-	join_res_ch := make(chan *WorldCreationEvent, 1)
-
-	h.join_q_mtx.Lock()
-	h.join_queue[local_session_id] = join_res_ch
-	h.join_q_mtx.Unlock()
-
 	ctx_done_waiter := make(chan bool, 1)
 	go func() { //context watchdog
 		select {
 		case <-ctx.Done():
-			h.neighborDiscoveryAlgorithm.CancelJoin(local_session_id) //this request AND module to early-return join failure
-
-			if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
-				panic("AND sanity check failed!!! :: " + err.Error())
-			}
+			h.neighborDiscoveryAlgorithm.CloseWorld(local_session_id) //this request AND module to early-return join failure
 		case <-ctx_done_waiter:
 			return
 		}
@@ -165,10 +151,6 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
 	if h.neighborDiscoveryAlgorithm.CloseWorld(world.SessionID()) != 0 {
 		panic("World Leave failed")
-	}
-
-	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
-		panic("AND sanity check failed!!! :: " + err.Error())
 	}
 }
 
@@ -229,10 +211,6 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 		return
 	}
 
-	if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
-		panic("AND sanity check failed!!! :: " + err.Error())
-	}
-
 	ahmp_channel := peer.AhmpCh()
 	for {
 		select {
@@ -278,10 +256,6 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 			} else if and_result == abyss.EINVAL {
 				fmt.Println("AND: invalid arguments - " + reflect.TypeOf(message_any).String() + fmt.Sprintf("%+v", message_any))
 			}
-
-			if err := h.neighborDiscoveryAlgorithm.(*and.AND).CheckSanity(); err != nil {
-				panic("AND sanity check failed!!! :: " + err.Error())
-			}
 		}
 	}
 }
@@ -301,7 +275,7 @@ func (h *AbyssHost) eventLoop() {
 		case e := <-event_ch:
 			switch e.Type {
 			case abyss.ANDSessionRequest:
-				//fmt.Println("event ::: abyss.ANDSessionRequest")
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionRequest")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -315,7 +289,7 @@ func (h *AbyssHost) eventLoop() {
 					PeerSessionID: e.PeerSessionID,
 				})
 			case abyss.ANDSessionReady:
-				//fmt.Println("event ::: abyss.ANDSessionReady")
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionReady")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -329,7 +303,7 @@ func (h *AbyssHost) eventLoop() {
 					PeerSessionID: e.PeerSessionID,
 				})
 			case abyss.ANDSessionClose:
-				//fmt.Println("event ::: abyss.ANDSessionClose")
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionClose")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -339,8 +313,8 @@ func (h *AbyssHost) eventLoop() {
 				}
 
 				world.RaisePeerLeave(e.Peer.IDHash())
-			case abyss.ANDJoinSuccess, abyss.ANDJoinFail:
-				//fmt.Println("event ::: abyss.ANDJoinResponse")
+			case abyss.ANDJoinSuccess:
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDJoinSuccess")
 
 				var new_world *World
 				if e.Type == abyss.ANDJoinSuccess {
@@ -355,27 +329,51 @@ func (h *AbyssHost) eventLoop() {
 				delete(h.join_queue, e.LocalSessionID)
 				h.join_q_mtx.Unlock()
 
+				fmt.Println("joined: " + e.LocalSessionID.String())
 				join_res_ch <- &WorldCreationEvent{
-					ok:      e.Type == abyss.ANDJoinSuccess,
+					ok:      true,
 					code:    e.Value,
 					message: e.Text,
 					world:   new_world,
 				}
+			case abyss.ANDJoinFail:
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDJoinFail")
+
+				h.worlds_mtx.Lock()
+				h.worlds[e.LocalSessionID] = nil
+				h.worlds_mtx.Unlock()
+
+				h.join_q_mtx.Lock()
+				join_res_ch := h.join_queue[e.LocalSessionID]
+				delete(h.join_queue, e.LocalSessionID)
+				h.join_q_mtx.Unlock()
+
+				fmt.Println("joined: " + e.LocalSessionID.String())
+				join_res_ch <- &WorldCreationEvent{
+					ok:      false,
+					code:    e.Value,
+					message: e.Text,
+					world:   nil,
+				}
 			case abyss.ANDWorldLeave:
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDWorldLeave")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				delete(h.worlds, e.LocalSessionID)
 				h.worlds_mtx.Unlock()
 
 				if !ok {
-					panic("world not found")
+					panic("world not found: " + e.LocalSessionID.String())
 				}
 
-				world.RaiseWorldTerminate()
+				if world != nil {
+					world.RaiseWorldTerminate()
+				}
 			case abyss.ANDConnectRequest:
-				//fmt.Println("event ::: abyss.ANDConnectRequest")
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDConnectRequest")
 				h.NetworkService.ConnectAbyssAsync(h.ctx, e.Object.(*aurl.AURL))
 			case abyss.ANDTimerRequest:
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDTimerRequest")
 				target_local_session := e.LocalSessionID
 				duration := e.Value
 				wg.Add(1)
@@ -388,9 +386,12 @@ func (h *AbyssHost) eventLoop() {
 					}
 				}()
 			case abyss.ANDPeerRegister:
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDPeerRegister")
 				certificates := e.Object.(*abyss.PeerCertificates)
 				h.NetworkService.AppendKnownPeerDer(certificates.RootCertDer, certificates.HandshakeKeyCertDer)
+
 			case abyss.ANDObjectAppend:
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDObjectAppend")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -402,6 +403,7 @@ func (h *AbyssHost) eventLoop() {
 				world.RaiseObjectAppend(e.Peer.IDHash(), e.Object.([]abyss.ObjectInfo))
 
 			case abyss.ANDObjectDelete:
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDObjectDelete")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -413,7 +415,7 @@ func (h *AbyssHost) eventLoop() {
 				world.RaiseObjectDelete(e.Peer.IDHash(), e.Object.([]uuid.UUID))
 
 			case abyss.ANDNeighborEventDebug:
-				//fmt.Println("event ::: abyss.ANDNeighborEventDebug")
+				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDNeighborEventDebug")
 				fmt.Println(time.Now().Format("00:00:00.000") + " " + e.Text)
 			default:
 				panic("unknown AND event")

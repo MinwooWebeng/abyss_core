@@ -54,10 +54,8 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 	PeerClose(peer IANDPeer) ANDERROR
 	OpenWorld(local_session_id uuid.UUID, world_url string) ANDERROR
 	JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) ANDERROR
-	CancelJoin(local_session_id uuid.UUID) ANDERROR //This requests the join procedure to yield ANDJoinFail event. However, the request may be ignored.
 	AcceptSession(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
 	DeclineSession(local_session_id uuid.UUID, peer_session ANDPeerSession, code int, message string) ANDERROR
-	ResetPeerSession(local_session_id uuid.UUID, peer IANDPeer, peer_session_id uuid.UUID)
 	CloseWorld(local_session_id uuid.UUID) ANDERROR
 	TimerExpire(local_session_id uuid.UUID) ANDERROR
 
