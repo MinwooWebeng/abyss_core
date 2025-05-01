@@ -195,7 +195,7 @@ func (h *AbyssHost) listenLoop() {
 			h.listen_done <- true
 			return
 		case peer := <-accept_ch:
-			watchdog.Info("new peer: " + peer.IDHash())
+			//watchdog.Info("new peer: " + peer.IDHash())
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -275,7 +275,7 @@ func (h *AbyssHost) eventLoop() {
 		case e := <-event_ch:
 			switch e.Type {
 			case abyss.ANDSessionRequest:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionRequest")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionRequest")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -289,7 +289,7 @@ func (h *AbyssHost) eventLoop() {
 					PeerSessionID: e.PeerSessionID,
 				})
 			case abyss.ANDSessionReady:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionReady")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionReady")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -303,7 +303,7 @@ func (h *AbyssHost) eventLoop() {
 					PeerSessionID: e.PeerSessionID,
 				})
 			case abyss.ANDSessionClose:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionClose")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDSessionClose")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -314,7 +314,7 @@ func (h *AbyssHost) eventLoop() {
 
 				world.RaisePeerLeave(e.Peer.IDHash())
 			case abyss.ANDJoinSuccess:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDJoinSuccess")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDJoinSuccess")
 
 				var new_world *World
 				if e.Type == abyss.ANDJoinSuccess {
@@ -329,7 +329,6 @@ func (h *AbyssHost) eventLoop() {
 				delete(h.join_queue, e.LocalSessionID)
 				h.join_q_mtx.Unlock()
 
-				fmt.Println("joined: " + e.LocalSessionID.String())
 				join_res_ch <- &WorldCreationEvent{
 					ok:      true,
 					code:    e.Value,
@@ -337,7 +336,7 @@ func (h *AbyssHost) eventLoop() {
 					world:   new_world,
 				}
 			case abyss.ANDJoinFail:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDJoinFail")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDJoinFail")
 
 				h.worlds_mtx.Lock()
 				h.worlds[e.LocalSessionID] = nil
@@ -348,7 +347,6 @@ func (h *AbyssHost) eventLoop() {
 				delete(h.join_queue, e.LocalSessionID)
 				h.join_q_mtx.Unlock()
 
-				fmt.Println("joined: " + e.LocalSessionID.String())
 				join_res_ch <- &WorldCreationEvent{
 					ok:      false,
 					code:    e.Value,
@@ -356,7 +354,7 @@ func (h *AbyssHost) eventLoop() {
 					world:   nil,
 				}
 			case abyss.ANDWorldLeave:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDWorldLeave")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDWorldLeave")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				delete(h.worlds, e.LocalSessionID)
@@ -370,10 +368,10 @@ func (h *AbyssHost) eventLoop() {
 					world.RaiseWorldTerminate()
 				}
 			case abyss.ANDConnectRequest:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDConnectRequest")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDConnectRequest")
 				h.NetworkService.ConnectAbyssAsync(h.ctx, e.Object.(*aurl.AURL))
 			case abyss.ANDTimerRequest:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDTimerRequest")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDTimerRequest: " + strconv.Itoa(e.Value))
 				target_local_session := e.LocalSessionID
 				duration := e.Value
 				wg.Add(1)
@@ -381,17 +379,17 @@ func (h *AbyssHost) eventLoop() {
 					defer wg.Done()
 					select {
 					case <-h.ctx.Done():
-					case <-time.NewTimer(time.Duration(duration) * time.Millisecond).C:
+					case <-time.After(time.Duration(duration) * time.Millisecond):
 						h.neighborDiscoveryAlgorithm.TimerExpire(target_local_session)
 					}
 				}()
 			case abyss.ANDPeerRegister:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDPeerRegister")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDPeerRegister")
 				certificates := e.Object.(*abyss.PeerCertificates)
 				h.NetworkService.AppendKnownPeerDer(certificates.RootCertDer, certificates.HandshakeKeyCertDer)
 
 			case abyss.ANDObjectAppend:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDObjectAppend")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDObjectAppend")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -403,7 +401,7 @@ func (h *AbyssHost) eventLoop() {
 				world.RaiseObjectAppend(e.Peer.IDHash(), e.Object.([]abyss.ObjectInfo))
 
 			case abyss.ANDObjectDelete:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDObjectDelete")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDObjectDelete")
 				h.worlds_mtx.Lock()
 				world, ok := h.worlds[e.LocalSessionID]
 				h.worlds_mtx.Unlock()
@@ -415,7 +413,7 @@ func (h *AbyssHost) eventLoop() {
 				world.RaiseObjectDelete(e.Peer.IDHash(), e.Object.([]uuid.UUID))
 
 			case abyss.ANDNeighborEventDebug:
-				fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDNeighborEventDebug")
+				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDNeighborEventDebug")
 				fmt.Println(time.Now().Format("00:00:00.000") + " " + e.Text)
 			default:
 				panic("unknown AND event")

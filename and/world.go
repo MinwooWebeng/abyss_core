@@ -64,8 +64,9 @@ func NewWorldOpen(local_session_id uuid.UUID, world_url string, connected_member
 		Text:           world_url,
 	}
 	result.ech <- abyss.NeighborEvent{
-		Type:  abyss.ANDTimerRequest,
-		Value: rand.Intn(300),
+		Type:           abyss.ANDTimerRequest,
+		LocalSessionID: result.lsid,
+		Value:          500,
 	}
 	return result
 }
@@ -105,8 +106,9 @@ func NewWorldJoin(local_session_id uuid.UUID, target *aurl.AURL, connected_membe
 	}
 
 	result.ech <- abyss.NeighborEvent{
-		Type:  abyss.ANDTimerRequest,
-		Value: rand.Intn(300),
+		Type:           abyss.ANDTimerRequest,
+		LocalSessionID: result.lsid,
+		Value:          500,
 	}
 	return result
 }
@@ -286,14 +288,19 @@ func (w *ANDWorld) SJN(peer_session abyss.ANDPeerSession, member_infos []abyss.A
 	}
 }
 func (w *ANDWorld) SJN_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerSessionInfo) {
-	info := w.peers[mem_info.PeerHash]
+	info, ok := w.peers[mem_info.PeerHash]
+	if !ok {
+		origin.Peer.TrySendCRR(w.lsid, origin.PeerSessionID, []abyss.ANDPeerSessionInfo{mem_info})
+		return
+	}
 	if info.s.PeerSessionID != mem_info.SessionID {
 		return
 	}
 	switch info.state {
-	case WS_MEM:
+	case WS_JNI, WS_RMEM, WS_TMEM, WS_MEM:
 		info.sjnc++
 	default:
+		fmt.Println(info.state)
 		origin.Peer.TrySendCRR(w.lsid, origin.PeerSessionID, []abyss.ANDPeerSessionInfo{mem_info})
 	}
 }
@@ -329,7 +336,6 @@ func (w *ANDWorld) SOA(peer_session abyss.ANDPeerSession, objects []abyss.Object
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
 		return
 	}
-	//fmt.Println(info.state)
 	switch info.state {
 	case WS_MEM:
 		w.ech <- abyss.NeighborEvent{
@@ -404,7 +410,6 @@ func (w *ANDWorld) AcceptSession(peer_session abyss.ANDPeerSession) {
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
 		return
 	}
-	fmt.Println(info.state)
 	switch info.state {
 	case WS_CC:
 	case WS_JT:
@@ -483,8 +488,9 @@ func (w *ANDWorld) TimerExpire() {
 	}
 
 	w.ech <- abyss.NeighborEvent{
-		Type:  abyss.ANDTimerRequest,
-		Value: rand.Intn(300 * (member_count + 1)),
+		Type:           abyss.ANDTimerRequest,
+		LocalSessionID: w.lsid,
+		Value:          min(300, rand.Intn(300*(member_count+1))),
 	}
 }
 

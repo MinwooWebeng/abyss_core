@@ -453,4 +453,6 @@ func TestKnownPeerUpdate(t *testing.T) {
 
 	<-wait_for_A_C_discovery
 	<-wait_for_A_C_discovery
+
+	<-time.After(time.Second * 5)
 }
