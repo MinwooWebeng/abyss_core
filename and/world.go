@@ -557,7 +557,7 @@ func (w *ANDWorld) Close() {
 			}
 		case WS_MEM:
 			w.ech <- abyss.NeighborEvent{
-				Type:           abyss.ANDSessionReady,
+				Type:           abyss.ANDSessionClose,
 				LocalSessionID: w.lsid,
 				ANDPeerSession: info.s,
 			}
