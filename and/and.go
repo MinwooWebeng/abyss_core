@@ -108,6 +108,7 @@ func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {
 		return 0
 	}
 	world.Close()
+	delete(a.worlds, local_session_id)
 	return 0
 }
 

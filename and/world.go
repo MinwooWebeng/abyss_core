@@ -408,7 +408,7 @@ func (w *ANDWorld) RST(peer_session abyss.ANDPeerSession) {
 		}
 	case WS_MEM:
 		w.ech <- abyss.NeighborEvent{
-			Type:           abyss.ANDSessionReady,
+			Type:           abyss.ANDSessionClose,
 			LocalSessionID: w.lsid,
 			ANDPeerSession: peer_session,
 		}
@@ -502,10 +502,12 @@ func (w *ANDWorld) TimerExpire() {
 		}
 	}
 
-	w.ech <- abyss.NeighborEvent{
-		Type:           abyss.ANDTimerRequest,
-		LocalSessionID: w.lsid,
-		Value:          min(300, rand.Intn(300*(member_count+1))),
+	if !w.is_closed {
+		w.ech <- abyss.NeighborEvent{
+			Type:           abyss.ANDTimerRequest,
+			LocalSessionID: w.lsid,
+			Value:          min(300, rand.Intn(300*(member_count+1))),
+		}
 	}
 }
 
