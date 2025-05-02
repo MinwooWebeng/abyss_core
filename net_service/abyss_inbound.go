@@ -98,106 +98,146 @@ func (h *AbyssInbound) listenAhmp() {
 		case ahmp.JN_T:
 			//fmt.Println("receiving JN")
 			var raw_msg ahmp.RawJN
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JN"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JN"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.JOK_T:
 			//fmt.Println("receiving JOK")
 			var raw_msg ahmp.RawJOK
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JOK"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JOK"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.JDN_T:
 			//fmt.Println("receiving JDN")
 			var raw_msg ahmp.RawJDN
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JDN"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JDN"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.JNI_T:
 			//fmt.Println("receiving JNI")
 			var raw_msg ahmp.RawJNI
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JNI"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing JNI"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.MEM_T:
 			//fmt.Println("receiving MEM")
 			var raw_msg ahmp.RawMEM
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing MEM"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing MEM"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.SJN_T:
 			//fmt.Println("receiving SJN")
 			var raw_msg ahmp.RawSJN
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing SJN"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing SJN"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.CRR_T:
 			//fmt.Println("receiving CRR")
 			var raw_msg ahmp.RawCRR
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing CRR"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing CRR"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.RST_T:
 			//fmt.Println("receiving RST")
 			var raw_msg ahmp.RawRST
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing RST"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing RST"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.SOA_T:
 			//fmt.Println("receiving SOA")
 			var raw_msg ahmp.RawSOA
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing SOA"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing SOA"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		case ahmp.SOD_T:
 			//fmt.Println("receiving SOD")
 			var raw_msg ahmp.RawSOD
-			h.cbor_decoder.Decode(&raw_msg)
+			err := h.cbor_decoder.Decode(&raw_msg)
+			if err != nil {
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing SOD"), err)}
+				return
+			}
 			parsed_msg, err := raw_msg.TryParse()
 			if err != nil {
-				h.AhmpChannel <- &ahmp.INVAL{Err: err}
-				continue
+				h.AhmpChannel <- &ahmp.INVAL{Err: errors.Join(errors.New("parsing SOD"), err)}
+				return
 			}
 			h.AhmpChannel <- parsed_msg
 		default:
 			h.AhmpChannel <- &ahmp.INVAL{Err: errors.New("unknown AHMP message type")}
-			continue
+			return
 		}
 	}
 }
