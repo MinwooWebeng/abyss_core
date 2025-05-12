@@ -1,7 +1,6 @@
 package interfaces
 
 import (
-	"context"
 	"net"
 
 	"github.com/MinwooWebeng/abyss_core/aurl"
@@ -26,17 +25,15 @@ type INetworkService interface {
 
 	HandlePreAccept(preaccept_handler IPreAccepter) // if false, return status code and message
 
-	ListenAndServe(ctx context.Context) error
+	ListenAndServe() error
 
 	AppendKnownPeer(root_cert string, handshake_key_cert string) error
 	AppendKnownPeerDer(root_cert []byte, handshake_key_cert []byte) error
-	RemoveKnownPeer(peer_hash string)
 
-	ConnectAbyssAsync(ctx context.Context, url *aurl.AURL) error
-	GetAbyssPeerChannel() chan IANDPeer //abyss mutual connection
-	CloseAbyssPeer(peer IANDPeer)
+	GetAbyssPeerChannel() chan IANDPeer //wait for established abyss mutual connection
 
-	ConnectAbyst(ctx context.Context, peer_hash string) (quic.Connection, error)
+	ConnectAbyssAsync(url *aurl.AURL) error                 //may return error if peer information has expired.
+	ConnectAbyst(peer_hash string) (quic.Connection, error) //should take ~2 rtt.
 }
 
 type IAddressSelector interface {

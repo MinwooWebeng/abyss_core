@@ -217,7 +217,7 @@ func NewHost(root_priv_key_pem_ptr *C.char, root_priv_key_pem_len C.int, h_path_
 		watchdog.Error(err)
 		return 0
 	}
-	net_service, err := abyss_net.NewBetaNetService(root_priv_key_casted, addr_selector, abyst_server)
+	net_service, err := abyss_net.NewBetaNetService(context.Background(), root_priv_key_casted, addr_selector, abyst_server)
 	if err != nil {
 		watchdog.Error(err)
 		return 0
@@ -682,14 +682,11 @@ func Host_GetAbystClientConnection(h C.uintptr_t, peer_hash_ptr *C.char, peer_ha
 		return 0
 	}
 
-	ctx, ctx_cancel := context.WithTimeout(context.Background(), time.Duration(timeout_ms)*time.Millisecond)
-	defer ctx_cancel()
-
 	peer_hash_buf, ok := TryUnmarshalBytes(peer_hash_ptr, peer_hash_len)
 	if !ok {
 		return 0
 	}
-	http_client, err := host.GetAbystClientConnection(ctx, string(peer_hash_buf))
+	http_client, err := host.GetAbystClientConnection(string(peer_hash_buf))
 	if err != nil {
 		*err_out = marshalError(err)
 		return 0

@@ -224,8 +224,8 @@ func (r *RootSecrets) NewTLSIdentity() (*TLSIdentity, error) {
 }
 
 type PeerIdentity struct {
-	root_self_cert_x509 *x509.Certificate
 	root_id_hash        string
+	root_self_cert_x509 *x509.Certificate
 	handshake_pub_key   *rsa.PublicKey
 
 	root_self_cert_der     []byte
@@ -304,12 +304,7 @@ func (p *PeerIdentity) EncryptHandshake(payload []byte) ([]byte, error) {
 	encrypted_key_nonce, err := rsa.EncryptOAEP(sha3.New256(), rand.Reader, p.handshake_pub_key, append(aesKey, nonce...), nil)
 	return append(encrypted_key_nonce, encrypted_payload...), err
 }
-func (p *PeerIdentity) VerifyTLSBinding(abyss_bind_cert_der []byte, tls_cert *x509.Certificate) error {
-	abyss_bind_cert, err := x509.ParseCertificate(abyss_bind_cert_der)
-	if err != nil {
-		return err
-	}
-	//compare abyss_bind_cert.PublicKey and tls_cert.PublicKey
+func (p *PeerIdentity) VerifyTLSBinding(abyss_bind_cert *x509.Certificate, tls_cert *x509.Certificate) error {
 	if !abyss_bind_cert.PublicKey.(ed25519.PublicKey).Equal(tls_cert.PublicKey) {
 		return errors.New("tls public key mismatch")
 	}

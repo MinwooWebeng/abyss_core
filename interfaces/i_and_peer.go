@@ -1,6 +1,8 @@
 package interfaces
 
 import (
+	"context"
+
 	"github.com/MinwooWebeng/abyss_core/aurl"
 
 	"github.com/google/uuid"
@@ -28,7 +30,15 @@ type IANDPeer interface {
 	RootCertificateDer() []byte
 	HandshakeKeyCertificateDer() []byte
 
+	IsConnected() bool
 	AURL() *aurl.AURL
+
+	//inactivity check
+	Context() context.Context
+	Activate()
+	Renew()
+	Deactivate()
+	Error() error
 
 	AhmpCh() chan any
 

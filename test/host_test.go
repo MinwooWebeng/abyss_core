@@ -91,12 +91,12 @@ func TestHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hostA, hostA_pathMap, _ := abyss_host.NewBetaAbyssHost(&privkey, nil)
+	hostA, hostA_pathMap, _ := abyss_host.NewBetaAbyssHost(context.Background(), &privkey, nil)
 	_, privkey, err = ed25519.GenerateKey(crypto_rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	hostB, _, _ := abyss_host.NewBetaAbyssHost(&privkey, nil)
+	hostB, _, _ := abyss_host.NewBetaAbyssHost(context.Background(), &privkey, nil)
 
 	go hostA.ListenAndServe(context.Background())
 	go hostB.ListenAndServe(context.Background())
@@ -299,7 +299,7 @@ func TestMoreHosts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		host, host_pathMap, _ := abyss_host.NewBetaAbyssHost(&privkey, nil)
+		host, host_pathMap, _ := abyss_host.NewBetaAbyssHost(context.Background(), &privkey, nil)
 
 		hosts[i] = &AutonomousHost{
 			global_join_targets: global_world_reg,
@@ -336,9 +336,9 @@ func assert(statement bool) {
 
 func TestObjectSharing(t *testing.T) {
 	_, privkey, _ := ed25519.GenerateKey(crypto_rand.Reader)
-	hostA, hostA_pathMap, _ := abyss_host.NewBetaAbyssHost(&privkey, nil)
+	hostA, hostA_pathMap, _ := abyss_host.NewBetaAbyssHost(context.Background(), &privkey, nil)
 	_, privkey, _ = ed25519.GenerateKey(crypto_rand.Reader)
-	hostB, _, _ := abyss_host.NewBetaAbyssHost(&privkey, nil)
+	hostB, _, _ := abyss_host.NewBetaAbyssHost(context.Background(), &privkey, nil)
 
 	go hostA.ListenAndServe(context.Background())
 	go hostB.ListenAndServe(context.Background())
@@ -383,9 +383,9 @@ func TestKnownPeerUpdate(t *testing.T) {
 	_, B_privkey, _ := ed25519.GenerateKey(crypto_rand.Reader)
 	_, C_privkey, _ := ed25519.GenerateKey(crypto_rand.Reader)
 
-	A_host, _, _ := abyss_host.NewBetaAbyssHost(&A_privkey, nil)
-	B_host, B_pathmap, _ := abyss_host.NewBetaAbyssHost(&B_privkey, nil)
-	C_host, _, _ := abyss_host.NewBetaAbyssHost(&C_privkey, nil)
+	A_host, _, _ := abyss_host.NewBetaAbyssHost(context.Background(), &A_privkey, nil)
+	B_host, B_pathmap, _ := abyss_host.NewBetaAbyssHost(context.Background(), &B_privkey, nil)
+	C_host, _, _ := abyss_host.NewBetaAbyssHost(context.Background(), &C_privkey, nil)
 
 	go A_host.ListenAndServe(context.Background())
 	go B_host.ListenAndServe(context.Background())

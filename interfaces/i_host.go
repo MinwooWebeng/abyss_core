@@ -64,5 +64,5 @@ type IAbyssHost interface {
 	// Each world should wait for its world termination event.
 
 	//Abyst
-	GetAbystClientConnection(ctx context.Context, peer_hash string) (*http3.ClientConn, error)
+	GetAbystClientConnection(peer_hash string) (*http3.ClientConn, error)
 }

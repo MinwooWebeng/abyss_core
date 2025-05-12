@@ -82,7 +82,7 @@ func (h *AbyssHost) GetLocalAbyssURL() *aurl.AURL {
 }
 
 func (h *AbyssHost) OpenOutboundConnection(abyss_url *aurl.AURL) {
-	h.NetworkService.ConnectAbyssAsync(h.ctx, abyss_url)
+	h.NetworkService.ConnectAbyssAsync(abyss_url)
 }
 
 func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
@@ -154,8 +154,8 @@ func (h *AbyssHost) LeaveWorld(world abyss.IAbyssWorld) {
 	}
 }
 
-func (h *AbyssHost) GetAbystClientConnection(ctx context.Context, peer_hash string) (*http3.ClientConn, error) {
-	conn, err := h.NetworkService.ConnectAbyst(ctx, peer_hash)
+func (h *AbyssHost) GetAbystClientConnection(peer_hash string) (*http3.ClientConn, error) {
+	conn, err := h.NetworkService.ConnectAbyst(peer_hash)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (h *AbyssHost) ListenAndServe(ctx context.Context) {
 
 	net_done := make(chan bool, 1)
 	go func() {
-		if err := h.NetworkService.ListenAndServe(ctx); err != nil {
+		if err := h.NetworkService.ListenAndServe(); err != nil {
 			fmt.Println(time.Now().Format("00:00:00.000") + "[network service failed] " + err.Error())
 		}
 		net_done <- true
@@ -206,6 +206,10 @@ func (h *AbyssHost) listenLoop() {
 }
 
 func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
+	//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " connected " + peer.IDHash()[:6] + ": " + peer.AURL().Addresses[0].String())
+	if !peer.IsConnected() {
+		return
+	}
 	retval := h.neighborDiscoveryAlgorithm.PeerConnected(peer)
 	if retval != 0 {
 		return
@@ -216,6 +220,9 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 		select {
 		case <-h.ctx.Done():
 			return
+		case <-peer.Context().Done():
+			//peer expired
+			fmt.Println("peer expired: " + peer.Error().Error())
 		case message_any := <-ahmp_channel:
 			var and_result abyss.ANDERROR
 
@@ -298,6 +305,7 @@ func (h *AbyssHost) eventLoop() {
 					panic("world not found")
 				}
 
+				e.Peer.Activate()
 				world.RaisePeerReady(abyss.ANDPeerSession{
 					Peer:          e.Peer,
 					PeerSessionID: e.PeerSessionID,
@@ -312,6 +320,7 @@ func (h *AbyssHost) eventLoop() {
 					panic("world not found")
 				}
 
+				e.Peer.Deactivate()
 				world.RaisePeerLeave(e.Peer.IDHash())
 			case abyss.ANDJoinSuccess:
 				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDJoinSuccess")
@@ -369,7 +378,7 @@ func (h *AbyssHost) eventLoop() {
 				}
 			case abyss.ANDConnectRequest:
 				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDConnectRequest")
-				h.NetworkService.ConnectAbyssAsync(h.ctx, e.Object.(*aurl.AURL))
+				h.NetworkService.ConnectAbyssAsync(e.Object.(*aurl.AURL))
 			case abyss.ANDTimerRequest:
 				//fmt.Println(h.NetworkService.LocalIdentity().IDHash()[:6] + " event ::: abyss.ANDTimerRequest: " + strconv.Itoa(e.Value))
 				target_local_session := e.LocalSessionID
@@ -398,6 +407,7 @@ func (h *AbyssHost) eventLoop() {
 					panic("world not found")
 				}
 
+				e.Peer.Renew()
 				world.RaiseObjectAppend(e.Peer.IDHash(), e.Object.([]abyss.ObjectInfo))
 
 			case abyss.ANDObjectDelete:
@@ -410,6 +420,7 @@ func (h *AbyssHost) eventLoop() {
 					panic("world not found")
 				}
 
+				e.Peer.Renew()
 				world.RaiseObjectDelete(e.Peer.IDHash(), e.Object.([]uuid.UUID))
 
 			case abyss.ANDNeighborEventDebug:
