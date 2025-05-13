@@ -17,6 +17,8 @@ type AND struct {
 	peers  map[string]abyss.IANDPeer //id hash - peer
 	worlds map[uuid.UUID]*ANDWorld   //local session id - world
 
+	stat ANDStatistics
+
 	api_mtx *sync.Mutex
 }
 
@@ -38,9 +40,12 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
+	a.stat.B(0)
+
 	a.peers[peer.IDHash()] = peer
 
 	for _, world := range a.worlds {
+		a.stat.B(1)
 		world.PeerConnected(peer)
 	}
 	return 0
@@ -50,7 +55,10 @@ func (a *AND) PeerClose(peer abyss.IANDPeer) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
+	a.stat.B(2)
+
 	for _, world := range a.worlds {
+		a.stat.B(3)
 		world.RemovePeer(peer)
 	}
 	delete(a.peers, peer.IDHash())
@@ -61,7 +69,9 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
-	world := NewWorldOpen(a.local_hash, local_session_id, world_url, a.peers, a.eventCh)
+	a.stat.B(4)
+
+	world := NewWorldOpen(a, a.local_hash, local_session_id, world_url, a.peers, a.eventCh)
 	a.worlds[world.lsid] = world
 	return 0
 }
@@ -70,7 +80,9 @@ func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
-	world := NewWorldJoin(a.local_hash, local_session_id, abyss_url, a.peers, a.eventCh)
+	a.stat.B(5)
+
+	world := NewWorldJoin(a, a.local_hash, local_session_id, abyss_url, a.peers, a.eventCh)
 	a.worlds[world.lsid] = world
 	return 0
 }
@@ -81,8 +93,11 @@ func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.ANDPe
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(6)
 		return 0
 	}
+	a.stat.B(7)
+
 	world.AcceptSession(peer_session)
 	return 0
 }
@@ -93,8 +108,11 @@ func (a *AND) DeclineSession(local_session_id uuid.UUID, peer_session abyss.ANDP
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(8)
 		return 0
 	}
+	a.stat.B(9)
+
 	world.DeclineSession(peer_session, code, message)
 	return 0
 }
@@ -105,8 +123,11 @@ func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(10)
 		return 0
 	}
+	a.stat.B(11)
+
 	world.Close()
 	delete(a.worlds, local_session_id)
 	return 0
@@ -118,8 +139,11 @@ func (a *AND) TimerExpire(local_session_id uuid.UUID) abyss.ANDERROR {
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(12)
 		return 0
 	}
+	a.stat.B(13)
+
 	world.TimerExpire()
 	return 0
 }
@@ -131,8 +155,11 @@ func (a *AND) JN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) 
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(14)
 		return 0
 	}
+	a.stat.B(15)
+
 	world.JN(peer_session)
 	return 0
 }
@@ -142,8 +169,11 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(16)
 		return 0
 	}
+	a.stat.B(17)
+
 	world.JOK(peer_session, world_url, member_infos)
 	return 0
 }
@@ -153,8 +183,11 @@ func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, mes
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(18)
 		return 0
 	}
+	a.stat.B(19)
+
 	world.Close()
 	return 0
 }
@@ -164,8 +197,11 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(20)
 		return 0
 	}
+	a.stat.B(21)
+
 	world.JNI(peer_session, member_info)
 	return 0
 }
@@ -175,8 +211,11 @@ func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(22)
 		return 0
 	}
+	a.stat.B(23)
+
 	world.MEM(peer_session)
 	return 0
 }
@@ -186,8 +225,11 @@ func (a *AND) SJN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(24)
 		return 0
 	}
+	a.stat.B(25)
+
 	world.SJN(peer_session, member_infos)
 	return 0
 }
@@ -197,8 +239,11 @@ func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(26)
 		return 0
 	}
+	a.stat.B(27)
+
 	world.CRR(peer_session, member_infos)
 	return 0
 }
@@ -209,11 +254,17 @@ func (a *AND) RST(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 	if local_session_id != uuid.Nil {
 		world, ok := a.worlds[local_session_id]
 		if !ok {
+			a.stat.B(28)
 			return 0
 		}
+		a.stat.B(29)
+
 		world.RST(peer_session)
 	} else {
+		a.stat.B(30)
+
 		for _, world := range a.worlds {
+			a.stat.B(31)
 			world.RST(peer_session)
 		}
 	}
@@ -226,8 +277,11 @@ func (a *AND) SOA(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(32)
 		return 0
 	}
+	a.stat.B(33)
+
 	world.SOA(peer_session, objects)
 	return 0
 }
@@ -237,8 +291,15 @@ func (a *AND) SOD(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 
 	world, ok := a.worlds[local_session_id]
 	if !ok {
+		a.stat.B(34)
 		return 0
 	}
+	a.stat.B(35)
+
 	world.SOD(peer_session, objectIDs)
 	return 0
+}
+
+func (a *AND) Statistics() string {
+	return a.stat.String()
 }
