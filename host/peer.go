@@ -6,18 +6,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type Peer struct {
+type WorldMember struct {
 	world       *World
 	hash        string
 	peerSession abyss.ANDPeerSession
 }
 
-func (p *Peer) Hash() string {
+func (p *WorldMember) Hash() string {
 	return p.hash
 }
-func (p *Peer) AppendObjects(objects []abyss.ObjectInfo) bool {
+func (p *WorldMember) SessionID() uuid.UUID {
+	return p.peerSession.PeerSessionID
+}
+func (p *WorldMember) AppendObjects(objects []abyss.ObjectInfo) bool {
 	return p.peerSession.Peer.TrySendSOA(p.world.session_id, p.peerSession.PeerSessionID, objects)
 }
-func (p *Peer) DeleteObjects(objectIDs []uuid.UUID) bool {
+func (p *WorldMember) DeleteObjects(objectIDs []uuid.UUID) bool {
 	return p.peerSession.Peer.TrySendSOD(p.world.session_id, p.peerSession.PeerSessionID, objectIDs)
 }

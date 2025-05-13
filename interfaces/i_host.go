@@ -19,29 +19,30 @@ type ObjectInfo struct {
 	Transform [7]float32
 }
 
-type IAbyssPeer interface {
+type IWorldMember interface {
 	Hash() string
+	SessionID() uuid.UUID
 	AppendObjects(objects []ObjectInfo) bool
 	DeleteObjects(objectIDs []uuid.UUID) bool
 }
 
-type EWorldPeerRequest struct {
-	PeerHash string
-	Accept   func()
-	Decline  func(code int, message string)
+type EWorldMemberRequest struct {
+	MemberHash string
+	Accept     func()
+	Decline    func(code int, message string)
 }
-type EWorldPeerReady struct {
-	Peer IAbyssPeer
+type EWorldMemberReady struct {
+	Member IWorldMember
 }
-type EPeerObjectAppend struct {
+type EMemberObjectAppend struct {
 	PeerHash string
 	Objects  []ObjectInfo
 }
-type EPeerObjectDelete struct {
+type EMemberObjectDelete struct {
 	PeerHash  string
 	ObjectIDs []uuid.UUID
 }
-type EWorldPeerLeave struct { //now, the peer must be closed as soon as possible.
+type EWorldMemberLeave struct { //now, the peer must be closed as soon as possible.
 	PeerHash string
 }
 type EWorldTerminate struct{}

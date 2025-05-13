@@ -43,35 +43,35 @@ func printWorldEvents(time_begin time.Time, prefix string, host abyss.IAbyssHost
 			host.OpenOutboundConnection(parsed_aurl)
 		case event_unknown := <-ev_ch:
 			switch event := event_unknown.(type) {
-			case abyss.EWorldPeerRequest:
-				fmt.Println(_time_passed(time_begin) + prefix + " accepting " + event.PeerHash)
+			case abyss.EWorldMemberRequest:
+				fmt.Println(_time_passed(time_begin) + prefix + " accepting " + event.MemberHash)
 
-				if _, ok := members[event.PeerHash]; ok {
+				if _, ok := members[event.MemberHash]; ok {
 					panic("!!! duplicate peer session request !!!")
 				}
-				members[event.PeerHash] = false // member not ready
+				members[event.MemberHash] = false // member not ready
 
 				event.Accept()
-			case abyss.EWorldPeerReady:
-				fmt.Println(_time_passed(time_begin) + prefix + " peer ready: " + event.Peer.Hash())
+			case abyss.EWorldMemberReady:
+				fmt.Println(_time_passed(time_begin) + prefix + " peer ready: " + event.Member.Hash())
 
-				is_ready, ok := members[event.Peer.Hash()]
+				is_ready, ok := members[event.Member.Hash()]
 				if !ok {
 					panic("!!! non-member peer ready !!!")
 				}
 				if is_ready {
 					panic("!!! duplicate peer ready !!!")
 				}
-				members[event.Peer.Hash()] = true // ready
+				members[event.Member.Hash()] = true // ready
 
 				//event.Peer.AppendObjects([]abyss.ObjectInfo{abyss.ObjectInfo{ID: uuid.New(), Address: "https://abyssal.com/cat.obj"}})
-			case abyss.EPeerObjectAppend:
+			case abyss.EMemberObjectAppend:
 				fmt.Println(_time_passed(time_begin) + prefix + " " + event.PeerHash + " appended" + functional.Accum_all(event.Objects, "", func(obj abyss.ObjectInfo, accum string) string {
 					return accum + " " + obj.ID.String() + "|" + obj.Addr
 				}))
-			case abyss.EPeerObjectDelete:
+			case abyss.EMemberObjectDelete:
 				fmt.Println(_time_passed(time_begin) + prefix + " " + event.PeerHash + " deleted" + functional.Accum_all(event.ObjectIDs, "", func(obj uuid.UUID, accum string) string { return accum + " " + obj.String() }))
-			case abyss.EWorldPeerLeave:
+			case abyss.EWorldMemberLeave:
 				fmt.Println(_time_passed(time_begin) + prefix + " peer leave: " + event.PeerHash)
 
 				if _, ok := members[event.PeerHash]; !ok {
@@ -355,7 +355,7 @@ func TestObjectSharing(t *testing.T) {
 
 	accept_end_ch := make(chan bool, 1)
 	go func() {
-		(<-a_world_ch).(abyss.EWorldPeerRequest).Accept()
+		(<-a_world_ch).(abyss.EWorldMemberRequest).Accept()
 		accept_end_ch <- true
 	}()
 
@@ -371,11 +371,11 @@ func TestObjectSharing(t *testing.T) {
 	b_world_ch := B_A_world.GetEventChannel()
 
 	<-accept_end_ch
-	(<-b_world_ch).(abyss.EWorldPeerRequest).Accept()
+	(<-b_world_ch).(abyss.EWorldMemberRequest).Accept()
 
-	(<-a_world_ch).(abyss.EWorldPeerReady).Peer.AppendObjects([]abyss.ObjectInfo{{ID: uuid.New(), Addr: "carrot.aml"}})
-	assert((<-b_world_ch).(abyss.EWorldPeerReady).Peer != nil)
-	assert((<-b_world_ch).(abyss.EPeerObjectAppend).Objects[0].Addr == "carrot.aml")
+	(<-a_world_ch).(abyss.EWorldMemberReady).Member.AppendObjects([]abyss.ObjectInfo{{ID: uuid.New(), Addr: "carrot.aml"}})
+	assert((<-b_world_ch).(abyss.EWorldMemberReady).Member != nil)
+	assert((<-b_world_ch).(abyss.EMemberObjectAppend).Objects[0].Addr == "carrot.aml")
 }
 
 func TestKnownPeerUpdate(t *testing.T) {
@@ -423,13 +423,13 @@ func TestKnownPeerUpdate(t *testing.T) {
 	go func() {
 		world, _ := A_host.JoinWorld(context.Background(), world_aurl)
 		ev_ch := world.GetEventChannel()
-		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
-		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == B_host.GetLocalAbyssURL().Hash)
+		(<-ev_ch).(abyss.EWorldMemberRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldMemberReady).Member.Hash() == B_host.GetLocalAbyssURL().Hash)
 
 		wait_for_A_join <- true
 
-		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
-		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == C_host.GetLocalAbyssURL().Hash)
+		(<-ev_ch).(abyss.EWorldMemberRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldMemberReady).Member.Hash() == C_host.GetLocalAbyssURL().Hash)
 
 		wait_for_A_C_discovery <- true
 	}()
@@ -438,18 +438,18 @@ func TestKnownPeerUpdate(t *testing.T) {
 
 		world, _ := C_host.JoinWorld(context.Background(), world_aurl)
 		ev_ch := world.GetEventChannel()
-		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
-		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == B_host.GetLocalAbyssURL().Hash)
-		(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
-		assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == A_host.GetLocalAbyssURL().Hash)
+		(<-ev_ch).(abyss.EWorldMemberRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldMemberReady).Member.Hash() == B_host.GetLocalAbyssURL().Hash)
+		(<-ev_ch).(abyss.EWorldMemberRequest).Accept()
+		assert((<-ev_ch).(abyss.EWorldMemberReady).Member.Hash() == A_host.GetLocalAbyssURL().Hash)
 
 		wait_for_A_C_discovery <- true
 	}()
 	ev_ch := B_world.GetEventChannel()
-	(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
-	assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == A_host.GetLocalAbyssURL().Hash)
-	(<-ev_ch).(abyss.EWorldPeerRequest).Accept()
-	assert((<-ev_ch).(abyss.EWorldPeerReady).Peer.Hash() == C_host.GetLocalAbyssURL().Hash)
+	(<-ev_ch).(abyss.EWorldMemberRequest).Accept()
+	assert((<-ev_ch).(abyss.EWorldMemberReady).Member.Hash() == A_host.GetLocalAbyssURL().Hash)
+	(<-ev_ch).(abyss.EWorldMemberRequest).Accept()
+	assert((<-ev_ch).(abyss.EWorldMemberReady).Member.Hash() == C_host.GetLocalAbyssURL().Hash)
 
 	<-wait_for_A_C_discovery
 	<-wait_for_A_C_discovery

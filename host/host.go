@@ -223,6 +223,7 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 		case <-peer.Context().Done():
 			//peer expired
 			fmt.Println("peer expired: " + peer.Error().Error())
+			return
 		case message_any := <-ahmp_channel:
 			var and_result abyss.ANDERROR
 

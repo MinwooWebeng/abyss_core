@@ -29,8 +29,8 @@ func (w *World) GetEventChannel() chan any {
 }
 
 func (w *World) RaisePeerRequest(peer_session abyss.ANDPeerSession) {
-	w.eventChannel <- abyss.EWorldPeerRequest{
-		PeerHash: peer_session.Peer.IDHash(),
+	w.eventChannel <- abyss.EWorldMemberRequest{
+		MemberHash: peer_session.Peer.IDHash(),
 		Accept: func() {
 			w.origin.AcceptSession(w.session_id, peer_session)
 		},
@@ -40,8 +40,8 @@ func (w *World) RaisePeerRequest(peer_session abyss.ANDPeerSession) {
 	}
 }
 func (w *World) RaisePeerReady(peer_session abyss.ANDPeerSession) {
-	w.eventChannel <- abyss.EWorldPeerReady{
-		Peer: &Peer{
+	w.eventChannel <- abyss.EWorldMemberReady{
+		Member: &WorldMember{
 			world:       w,
 			hash:        peer_session.Peer.IDHash(),
 			peerSession: peer_session,
@@ -49,19 +49,19 @@ func (w *World) RaisePeerReady(peer_session abyss.ANDPeerSession) {
 	}
 }
 func (w *World) RaiseObjectAppend(peer_hash string, objects []abyss.ObjectInfo) {
-	w.eventChannel <- abyss.EPeerObjectAppend{
+	w.eventChannel <- abyss.EMemberObjectAppend{
 		PeerHash: peer_hash,
 		Objects:  objects,
 	}
 }
 func (w *World) RaiseObjectDelete(peer_hash string, objectIDs []uuid.UUID) {
-	w.eventChannel <- abyss.EPeerObjectDelete{
+	w.eventChannel <- abyss.EMemberObjectDelete{
 		PeerHash:  peer_hash,
 		ObjectIDs: objectIDs,
 	}
 }
 func (w *World) RaisePeerLeave(peer_hash string) {
-	w.eventChannel <- abyss.EWorldPeerLeave{
+	w.eventChannel <- abyss.EWorldMemberLeave{
 		PeerHash: peer_hash,
 	}
 }
