@@ -47,9 +47,9 @@ func __tdn(i int) string {
 	}
 
 	if i < 10 {
-		return "  " + strconv.Itoa(i)
+		return "   " + strconv.Itoa(i)
 	} else if i < 100 {
-		return " " + strconv.Itoa(i)
+		return "  " + strconv.Itoa(i)
 	}
 
 	v := i
@@ -60,9 +60,9 @@ func __tdn(i int) string {
 	}
 
 	if m > 26 {
-		return "FFF"
+		return " FFF"
 	}
-	return string(rune('A'+m-1)) + strconv.Itoa(v)
+	return " " + string(rune('A'+m-1)) + strconv.Itoa(v)
 }
 
 func (s *ANDStatistics) String() string {
@@ -93,13 +93,13 @@ func (s *ANDStatistics) String() string {
 
 	for i, b := range s._b {
 		sb.WriteString(__tdn(b))
-		if i%10 == 0 {
+		if i%10 == 9 {
 			sb.WriteString("\n")
 		}
 	}
 	for i, w := range s._w {
 		sb.WriteString(__tdn(w))
-		if i%10 == 0 {
+		if i%10 == 9 {
 			sb.WriteString("\n")
 		}
 	}
