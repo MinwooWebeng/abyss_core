@@ -189,6 +189,7 @@ func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, mes
 	a.stat.B(19)
 
 	world.Close()
+	delete(a.worlds, local_session_id)
 	return 0
 }
 func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_info abyss.ANDFullPeerSessionInfo) abyss.ANDERROR {

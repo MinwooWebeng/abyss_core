@@ -29,7 +29,7 @@ type ANDStatistics struct {
 	SOD_RX int
 
 	_b [36]int
-	_w [100]int
+	_w [74]int
 }
 
 func (s *ANDStatistics) B(i int) {
@@ -97,6 +97,7 @@ func (s *ANDStatistics) String() string {
 			sb.WriteString("\n")
 		}
 	}
+	sb.WriteString("\n")
 	for i, w := range s._w {
 		sb.WriteString(__tdn(w))
 		if i%10 == 9 {
