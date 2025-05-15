@@ -82,7 +82,7 @@ func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.
 
 	a.stat.B(5)
 
-	world := NewWorldJoin(a, a.local_hash, local_session_id, abyss_url, a.peers, a.eventCh)
+	world := NewWorldJoin(a, a.local_hash, local_session_id, abyss_url, a.peers, a.eventCh) //should immediate return
 	a.worlds[world.lsid] = world
 	return 0
 }
@@ -188,8 +188,7 @@ func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, mes
 	}
 	a.stat.B(19)
 
-	world.Close()
-	delete(a.worlds, local_session_id)
+	world.JDN(peer) // after, world should be manually closed from application-side.
 	return 0
 }
 func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_info abyss.ANDFullPeerSessionInfo) abyss.ANDERROR {

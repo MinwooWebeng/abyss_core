@@ -24,21 +24,23 @@ const (
 )
 
 type ANDPeerSessionInfo struct {
-	s     abyss.ANDPeerSession
-	state int
-	t_mem time.Time
-	sjnp  bool //is sjn suppressed
-	sjnc  int  //sjn receive count
+	s       abyss.ANDPeerSession
+	jni_sid map[string]uuid.UUID //issuer id -> uuid. must be empty when s.SessionID is set.
+	state   int
+	t_mem   time.Time //member confirm timestamp
+	sjnp    bool      //is sjn suppressed
+	sjnc    int       //sjn receive count
 }
 
 type ANDWorld struct {
 	o *AND //origin (debug purpose)
 
-	local string //local hash
-	lsid  uuid.UUID
-	path  string                         //join path
-	wurl  string                         //world url
-	peers map[string]*ANDPeerSessionInfo //key: hash
+	local     string //local hash
+	lsid      uuid.UUID
+	join_hash string
+	join_path string
+	wurl      string                         //world url
+	peers     map[string]*ANDPeerSessionInfo //key: hash
 
 	ech       chan abyss.NeighborEvent
 	is_closed bool
@@ -46,27 +48,31 @@ type ANDWorld struct {
 
 func NewWorldOpen(origin *AND, local_hash string, local_session_id uuid.UUID, world_url string, connected_members map[string]abyss.IANDPeer, event_ch chan abyss.NeighborEvent) *ANDWorld {
 	result := &ANDWorld{
-		o:     origin,
-		local: local_hash,
-		lsid:  local_session_id,
-		wurl:  world_url,
-		peers: make(map[string]*ANDPeerSessionInfo),
-		ech:   event_ch,
+		o:         origin,
+		local:     local_hash,
+		lsid:      local_session_id,
+		join_hash: "",
+		join_path: "",
+		wurl:      world_url,
+		peers:     make(map[string]*ANDPeerSessionInfo),
+		ech:       event_ch,
+		is_closed: false,
 	}
-	for _, peer := range connected_members {
+	for peer_id, peer := range connected_members {
 		origin.stat.W(0)
 
-		result.peers[peer.IDHash()] = &ANDPeerSessionInfo{
+		result.peers[peer_id] = &ANDPeerSessionInfo{
 			s: abyss.ANDPeerSession{
 				Peer:          peer,
 				PeerSessionID: uuid.Nil,
 			},
-			state: WS_CC,
+			jni_sid: make(map[string]uuid.UUID),
+			state:   WS_CC,
 		}
 	}
 	result.ech <- abyss.NeighborEvent{
 		Type:           abyss.ANDJoinSuccess,
-		LocalSessionID: result.lsid,
+		LocalSessionID: local_session_id,
 		Text:           world_url,
 	}
 	result.ech <- abyss.NeighborEvent{
@@ -79,91 +85,102 @@ func NewWorldOpen(origin *AND, local_hash string, local_session_id uuid.UUID, wo
 
 func NewWorldJoin(origin *AND, local_hash string, local_session_id uuid.UUID, target *aurl.AURL, connected_members map[string]abyss.IANDPeer, event_ch chan abyss.NeighborEvent) *ANDWorld {
 	result := &ANDWorld{
-		o:     origin,
-		local: local_hash,
-		lsid:  local_session_id,
-		path:  target.Path,
-		peers: make(map[string]*ANDPeerSessionInfo),
-		ech:   event_ch,
+		o:         origin,
+		local:     local_hash,
+		lsid:      local_session_id,
+		join_hash: target.Hash,
+		join_path: target.Path,
+		peers:     make(map[string]*ANDPeerSessionInfo),
+		ech:       event_ch,
+		is_closed: false,
 	}
-	for _, peer := range connected_members {
+	is_join_target_connected := false
+	for peer_id, peer := range connected_members {
 		origin.stat.W(1)
 
-		result.peers[peer.IDHash()] = &ANDPeerSessionInfo{
+		if peer_id == target.Hash {
+			is_join_target_connected = true
+			result.peers[peer_id] = &ANDPeerSessionInfo{
+				s: abyss.ANDPeerSession{
+					Peer:          peer,
+					PeerSessionID: uuid.Nil,
+				},
+				jni_sid: make(map[string]uuid.UUID),
+				state:   WS_JT,
+			}
+			peer.TrySendJN(local_session_id, target.Path)
+			continue
+		}
+
+		result.peers[peer_id] = &ANDPeerSessionInfo{
 			s: abyss.ANDPeerSession{
 				Peer:          peer,
 				PeerSessionID: uuid.Nil,
 			},
-			state: WS_CC,
+			jni_sid: make(map[string]uuid.UUID),
+			state:   WS_CC,
 		}
 	}
-	if _, ok := connected_members[target.Hash]; !ok {
-		origin.stat.W(2)
-
+	if !is_join_target_connected {
 		result.peers[target.Hash] = &ANDPeerSessionInfo{
 			s: abyss.ANDPeerSession{
 				Peer:          nil,
 				PeerSessionID: uuid.Nil,
 			},
-			state: WS_DC_JT,
+			jni_sid: make(map[string]uuid.UUID),
+			state:   WS_DC_JT,
 		}
 		result.ech <- abyss.NeighborEvent{
 			Type:   abyss.ANDConnectRequest,
 			Object: target,
 		}
-	} else {
-		origin.stat.W(3)
-
-		info := result.peers[target.Hash]
-		info.state = WS_JT
-		info.s.Peer.TrySendJN(result.lsid, target.Path)
-	}
-
-	result.ech <- abyss.NeighborEvent{
-		Type:           abyss.ANDTimerRequest,
-		LocalSessionID: result.lsid,
-		Value:          500,
 	}
 	return result
 }
 
 func (w *ANDWorld) PeerConnected(peer abyss.IANDPeer) {
 	info, ok := w.peers[peer.IDHash()]
-	if !ok {
-		w.o.stat.W(4)
+	if ok { // known peer
+		w.o.stat.W(0)
 
-		w.peers[peer.IDHash()] = &ANDPeerSessionInfo{
-			s: abyss.ANDPeerSession{
-				Peer:          peer,
-				PeerSessionID: uuid.Nil,
-			},
-			state: WS_CC,
+		switch info.state {
+		case WS_DC_JT:
+			w.o.stat.W(1)
+
+			info.s.Peer = peer
+			peer.TrySendJN(w.lsid, w.join_path)
+			info.state = WS_JT
+		case WS_DC_JNI:
+			w.o.stat.W(2)
+
+			info.s.Peer = peer
+			info.state = WS_JNI
+			w.ech <- abyss.NeighborEvent{
+				Type:           abyss.ANDSessionRequest,
+				LocalSessionID: w.lsid,
+				ANDPeerSession: info.s,
+			}
+		default:
+			panic("and: duplicate connection")
 		}
+
 		return
 	}
-	info.s.Peer = peer
-	switch info.state {
-	case WS_DC_JT:
-		w.o.stat.W(5)
-
-		peer.TrySendJN(w.lsid, w.path)
-		info.state = WS_JT
-	case WS_DC_JNI:
-		w.o.stat.W(6)
-
-		w.ech <- abyss.NeighborEvent{
-			Type:           abyss.ANDSessionRequest,
-			LocalSessionID: w.lsid,
-			ANDPeerSession: info.s,
-		}
-		info.state = WS_JNI
+	//unknown peer
+	w.peers[peer.IDHash()] = &ANDPeerSessionInfo{
+		s: abyss.ANDPeerSession{
+			Peer:          peer,
+			PeerSessionID: uuid.Nil,
+		},
+		jni_sid: make(map[string]uuid.UUID),
+		state:   WS_CC,
 	}
 }
 func (w *ANDWorld) JN(peer_session abyss.ANDPeerSession) {
 	info := w.peers[peer_session.Peer.IDHash()]
 	switch info.state {
 	case WS_CC:
-		w.o.stat.W(7)
+		w.o.stat.W(3)
 
 		info.s.PeerSessionID = peer_session.PeerSessionID
 		w.ech <- abyss.NeighborEvent{
@@ -173,80 +190,108 @@ func (w *ANDWorld) JN(peer_session abyss.ANDPeerSession) {
 		}
 		info.state = WS_JN
 	default:
-		w.o.stat.W(8)
+		w.o.stat.W(4)
 
 		peer_session.Peer.TrySendJDN(peer_session.PeerSessionID, JNC_INVALID_STATES, JNM_INVALID_STATES)
 		return
 	}
 }
 func (w *ANDWorld) JOK(peer_session abyss.ANDPeerSession, world_url string, member_infos []abyss.ANDFullPeerSessionInfo) {
-	info := w.peers[peer_session.Peer.IDHash()]
-	switch info.state {
-	case WS_JT:
-		w.o.stat.W(9)
-
-		info.s.PeerSessionID = peer_session.PeerSessionID
-		w.ech <- abyss.NeighborEvent{
-			Type:           abyss.ANDJoinSuccess,
-			LocalSessionID: w.lsid,
-			Text:           world_url,
-		}
-		w.ech <- abyss.NeighborEvent{
-			Type:           abyss.ANDSessionRequest,
-			LocalSessionID: w.lsid,
-			ANDPeerSession: info.s,
-		}
-		info.state = WS_RMEM
-		info.sjnp = true
-
-		for _, mem_info := range member_infos {
-			w.o.stat.W(10)
-
-			w.JNI_MEMS(mem_info)
-		}
-	default:
-		w.o.stat.W(11)
+	if w.join_hash != peer_session.Peer.IDHash() {
+		w.o.stat.W(5)
 
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
 		return
 	}
+
+	info := w.peers[peer_session.Peer.IDHash()]
+	if info.state != WS_JT {
+		w.o.stat.W(6)
+
+		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
+		return
+	}
+
+	w.o.stat.W(7)
+
+	info.s.PeerSessionID = peer_session.PeerSessionID
+	w.ech <- abyss.NeighborEvent{
+		Type:           abyss.ANDJoinSuccess,
+		LocalSessionID: w.lsid,
+		Text:           world_url,
+	}
+	w.ech <- abyss.NeighborEvent{
+		Type:           abyss.ANDSessionRequest,
+		LocalSessionID: w.lsid,
+		ANDPeerSession: info.s,
+	}
+	info.state = WS_RMEM
+	info.sjnp = true
+
+	for _, mem_info := range member_infos {
+		w.JNI_MEMS(mem_info)
+	}
+}
+func (w *ANDWorld) JDN(peer abyss.IANDPeer) { //no branch number here... :(
+	peer_id := peer.IDHash()
+	if w.join_hash != peer_id {
+		return
+	}
+
+	info := w.peers[peer_id]
+	if info.state != WS_JT {
+		return
+	}
+
+	w.ech <- abyss.NeighborEvent{
+		Type:           abyss.ANDJoinFail,
+		LocalSessionID: w.lsid,
+		Text:           "",
+		Value:          0, //code
+	}
+	//from now on, the world must be abandoned.
 }
 func (w *ANDWorld) JNI(peer_session abyss.ANDPeerSession, member_info abyss.ANDFullPeerSessionInfo) {
 	info := w.peers[peer_session.Peer.IDHash()]
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
-		w.o.stat.W(12)
+		w.o.stat.W(8)
 
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
 		return
 	}
+
 	switch info.state {
 	case WS_MEM:
-		w.o.stat.W(13)
+		w.o.stat.W(9)
 
 		w.JNI_MEMS(member_info)
-	default:
-		w.o.stat.W(14)
+	case WS_CC, WS_JT, WS_JN, WS_RMEM_NJNI, WS_JNI, WS_RMEM, WS_TMEM:
+		w.o.stat.W(10)
 
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
+	default:
+		panic("and: impossible disconnected state")
 	}
 }
 func (w *ANDWorld) JNI_MEMS(mem_info abyss.ANDFullPeerSessionInfo) {
-	if mem_info.AURL.Hash == w.local {
-		w.o.stat.W(15)
+	peer_id := mem_info.AURL.Hash
+	jni_psid := mem_info.SessionID
+	if peer_id == w.local {
+		w.o.stat.W(11)
 		return
 	}
 
-	info, ok := w.peers[mem_info.AURL.Hash]
+	info, ok := w.peers[peer_id]
 	if !ok {
-		w.o.stat.W(16)
+		w.o.stat.W(12)
 
-		w.peers[mem_info.AURL.Hash] = &ANDPeerSessionInfo{
+		w.peers[peer_id] = &ANDPeerSessionInfo{
 			s: abyss.ANDPeerSession{
 				Peer:          nil,
-				PeerSessionID: mem_info.SessionID,
+				PeerSessionID: jni_psid,
 			},
 			state: WS_DC_JNI,
-			sjnp:  true,
+			sjnp:  false,
 		}
 		w.ech <- abyss.NeighborEvent{
 			Type: abyss.ANDPeerRegister,
@@ -263,9 +308,9 @@ func (w *ANDWorld) JNI_MEMS(mem_info abyss.ANDFullPeerSessionInfo) {
 	}
 	switch info.state {
 	case WS_CC:
-		w.o.stat.W(17)
+		w.o.stat.W(13)
 
-		info.s.PeerSessionID = mem_info.SessionID
+		info.s.PeerSessionID = jni_psid
 		info.state = WS_JNI
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDSessionRequest,
@@ -273,9 +318,9 @@ func (w *ANDWorld) JNI_MEMS(mem_info abyss.ANDFullPeerSessionInfo) {
 			ANDPeerSession: info.s,
 		}
 	case WS_RMEM_NJNI:
-		w.o.stat.W(18)
+		w.o.stat.W(14)
 
-		if info.s.PeerSessionID != mem_info.SessionID {
+		if info.s.PeerSessionID != jni_psid {
 			return
 		}
 		info.state = WS_RMEM
@@ -284,29 +329,38 @@ func (w *ANDWorld) JNI_MEMS(mem_info abyss.ANDFullPeerSessionInfo) {
 			LocalSessionID: w.lsid,
 			ANDPeerSession: info.s,
 		}
-	case WS_JT, WS_JN, WS_JNI, WS_RMEM, WS_TMEM, WS_MEM:
-		w.o.stat.W(19)
+	case WS_DC_JT, WS_DC_JNI, WS_JT, WS_JN, WS_JNI, WS_RMEM, WS_TMEM, WS_MEM:
+		w.o.stat.W(15)
+		//ignore
 	}
 }
 func (w *ANDWorld) MEM(peer_session abyss.ANDPeerSession) {
 	info := w.peers[peer_session.Peer.IDHash()]
-	if info.s.PeerSessionID != peer_session.PeerSessionID {
-		w.o.stat.W(20)
-
-		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
-		return
-	}
 	switch info.state {
 	case WS_CC:
-		w.o.stat.W(21)
+		w.o.stat.W(16)
 
+		info.s.PeerSessionID = peer_session.PeerSessionID
 		info.state = WS_RMEM_NJNI
 	case WS_JNI:
-		w.o.stat.W(22)
+		w.o.stat.W(17)
+
+		if info.s.PeerSessionID != peer_session.PeerSessionID {
+			info.s.PeerSessionID = peer_session.PeerSessionID
+			info.state = WS_RMEM_NJNI //likely, expired JNI
+			return
+		}
 
 		info.state = WS_RMEM
 	case WS_TMEM:
-		w.o.stat.W(23)
+		w.o.stat.W(18)
+
+		if info.s.PeerSessionID != peer_session.PeerSessionID {
+			info.s.PeerSessionID = peer_session.PeerSessionID
+			peer_session.Peer.TrySendRST(w.lsid, info.s.PeerSessionID)
+			info.state = WS_RMEM_NJNI
+			return
+		}
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDSessionReady,
@@ -315,53 +369,63 @@ func (w *ANDWorld) MEM(peer_session abyss.ANDPeerSession) {
 		}
 		info.t_mem = time.Now()
 		info.state = WS_MEM
-	case WS_JT, WS_JN, WS_RMEM_NJNI, WS_RMEM, WS_MEM:
-		w.o.stat.W(24)
+	case WS_RMEM_NJNI, WS_RMEM, WS_MEM:
+		w.o.stat.W(19)
+
+		peer_session.Peer.TrySendRST(w.lsid, info.s.PeerSessionID)
+		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
+		info.state = WS_CC
+	case WS_JT, WS_JN:
+		w.o.stat.W(20)
+
+	default:
+		panic("and: impossible disconnected state")
 	}
 }
 func (w *ANDWorld) SJN(peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) {
 	info := w.peers[peer_session.Peer.IDHash()]
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
+		w.o.stat.W(21)
+
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
-		w.o.stat.W(25)
 		return
 	}
 	switch info.state {
 	case WS_MEM:
-		w.o.stat.W(26)
+		w.o.stat.W(22)
 
 		for _, mem_info := range member_infos {
 			w.SJN_MEMS(peer_session, mem_info)
 		}
 	default:
-		w.o.stat.W(27)
+		w.o.stat.W(23)
 
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
 	}
 }
 func (w *ANDWorld) SJN_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerSessionInfo) {
 	if mem_info.PeerHash == w.local {
-		w.o.stat.W(28)
+		w.o.stat.W(24)
 		return
 	}
 
 	info, ok := w.peers[mem_info.PeerHash]
 	if !ok {
 		origin.Peer.TrySendCRR(w.lsid, origin.PeerSessionID, []abyss.ANDPeerSessionInfo{mem_info})
-		w.o.stat.W(29)
+		w.o.stat.W(25)
 		return
 	}
 	if info.s.PeerSessionID != mem_info.SessionID {
-		w.o.stat.W(30)
+		w.o.stat.W(26)
 		return
 	}
 	switch info.state {
 	case WS_JNI, WS_RMEM, WS_TMEM, WS_MEM:
-		w.o.stat.W(31)
+		w.o.stat.W(27)
 
 		info.sjnc++
 	default:
-		w.o.stat.W(32)
+		w.o.stat.W(28)
 
 		origin.Peer.TrySendCRR(w.lsid, origin.PeerSessionID, []abyss.ANDPeerSessionInfo{mem_info})
 	}
@@ -370,52 +434,52 @@ func (w *ANDWorld) CRR(peer_session abyss.ANDPeerSession, member_infos []abyss.A
 	info := w.peers[peer_session.Peer.IDHash()]
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
-		w.o.stat.W(33)
+		w.o.stat.W(29)
 		return
 	}
 	switch info.state {
 	case WS_MEM:
-		w.o.stat.W(34)
+		w.o.stat.W(30)
 
 		for _, mem_info := range member_infos {
 			w.CRR_MEMS(peer_session, mem_info)
 		}
 	default:
-		w.o.stat.W(35)
+		w.o.stat.W(31)
 
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
 	}
 }
 func (w *ANDWorld) CRR_MEMS(origin abyss.ANDPeerSession, mem_info abyss.ANDPeerSessionInfo) {
 	if mem_info.PeerHash == w.local {
-		w.o.stat.W(36)
+		w.o.stat.W(32)
 		return
 	}
 
 	info := w.peers[mem_info.PeerHash]
 	if info.s.PeerSessionID != mem_info.SessionID {
-		w.o.stat.W(37)
+		w.o.stat.W(33)
 		return
 	}
 	switch info.state {
 	case WS_MEM:
-		w.o.stat.W(38)
+		w.o.stat.W(34)
 		origin.Peer.TrySendJNI(w.lsid, origin.PeerSessionID, info.s)
 		info.s.Peer.TrySendJNI(w.lsid, info.s.PeerSessionID, origin)
 	default:
-		w.o.stat.W(39)
+		w.o.stat.W(35)
 	}
 }
 func (w *ANDWorld) SOA(peer_session abyss.ANDPeerSession, objects []abyss.ObjectInfo) {
 	info := w.peers[peer_session.Peer.IDHash()]
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
-		w.o.stat.W(40)
+		w.o.stat.W(36)
 		return
 	}
 	switch info.state {
 	case WS_MEM:
-		w.o.stat.W(41)
+		w.o.stat.W(37)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDObjectAppend,
@@ -424,19 +488,19 @@ func (w *ANDWorld) SOA(peer_session abyss.ANDPeerSession, objects []abyss.Object
 			Object:         objects,
 		}
 	default:
-		w.o.stat.W(42)
+		w.o.stat.W(38)
 	}
 }
 func (w *ANDWorld) SOD(peer_session abyss.ANDPeerSession, objectIDs []uuid.UUID) {
 	info := w.peers[peer_session.Peer.IDHash()]
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
-		w.o.stat.W(43)
+		w.o.stat.W(39)
 		return
 	}
 	switch info.state {
 	case WS_MEM:
-		w.o.stat.W(44)
+		w.o.stat.W(40)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDObjectDelete,
@@ -445,18 +509,18 @@ func (w *ANDWorld) SOD(peer_session abyss.ANDPeerSession, objectIDs []uuid.UUID)
 			Object:         objectIDs,
 		}
 	default:
-		w.o.stat.W(45)
+		w.o.stat.W(41)
 	}
 }
 func (w *ANDWorld) RST(peer_session abyss.ANDPeerSession) {
 	info := w.peers[peer_session.Peer.IDHash()]
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
-		w.o.stat.W(46)
+		w.o.stat.W(42)
 		return
 	}
 	switch info.state {
 	case WS_JT:
-		w.o.stat.W(47)
+		w.o.stat.W(43)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDJoinFail,
@@ -465,7 +529,7 @@ func (w *ANDWorld) RST(peer_session abyss.ANDPeerSession) {
 			Value:          JNC_CANCELED,
 		}
 	case WS_TMEM:
-		w.o.stat.W(48)
+		w.o.stat.W(44)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDSessionReady,
@@ -478,7 +542,7 @@ func (w *ANDWorld) RST(peer_session abyss.ANDPeerSession) {
 			ANDPeerSession: peer_session,
 		}
 	case WS_MEM:
-		w.o.stat.W(49)
+		w.o.stat.W(45)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDSessionClose,
@@ -486,7 +550,7 @@ func (w *ANDWorld) RST(peer_session abyss.ANDPeerSession) {
 			ANDPeerSession: peer_session,
 		}
 	default:
-		w.o.stat.W(50)
+		w.o.stat.W(46)
 	}
 	delete(w.peers, peer_session.Peer.IDHash())
 }
@@ -494,17 +558,17 @@ func (w *ANDWorld) RST(peer_session abyss.ANDPeerSession) {
 func (w *ANDWorld) AcceptSession(peer_session abyss.ANDPeerSession) {
 	info, ok := w.peers[peer_session.Peer.IDHash()]
 	if !ok {
-		w.o.stat.W(51)
+		w.o.stat.W(47)
 		return
 	}
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
-		w.o.stat.W(52)
+		w.o.stat.W(48)
 		return
 	}
 	switch info.state {
 	case WS_JN:
-		w.o.stat.W(53)
+		w.o.stat.W(49)
 
 		member_infos := make([]abyss.ANDPeerSession, 0)
 		for _, p := range w.peers {
@@ -517,12 +581,12 @@ func (w *ANDWorld) AcceptSession(peer_session abyss.ANDPeerSession) {
 		info.s.Peer.TrySendJOK(w.lsid, info.s.PeerSessionID, w.wurl, member_infos)
 		info.state = WS_TMEM
 	case WS_JNI:
-		w.o.stat.W(54)
+		w.o.stat.W(50)
 
 		info.s.Peer.TrySendMEM(w.lsid, info.s.PeerSessionID)
 		info.state = WS_TMEM
 	case WS_RMEM:
-		w.o.stat.W(55)
+		w.o.stat.W(51)
 
 		info.s.Peer.TrySendMEM(w.lsid, info.s.PeerSessionID)
 		w.ech <- abyss.NeighborEvent{
@@ -533,23 +597,23 @@ func (w *ANDWorld) AcceptSession(peer_session abyss.ANDPeerSession) {
 		info.t_mem = time.Now()
 		info.state = WS_MEM
 	default:
-		w.o.stat.W(56)
+		w.o.stat.W(52)
 	}
 }
 func (w *ANDWorld) DeclineSession(peer_session abyss.ANDPeerSession, code int, message string) {
 	info, ok := w.peers[peer_session.Peer.IDHash()]
 	if !ok {
-		w.o.stat.W(57)
+		w.o.stat.W(53)
 		return
 	}
 	if info.s.PeerSessionID != peer_session.PeerSessionID {
 		peer_session.Peer.TrySendRST(w.lsid, peer_session.PeerSessionID)
-		w.o.stat.W(58)
+		w.o.stat.W(54)
 		return
 	}
 	switch info.state {
 	default:
-		w.o.stat.W(59)
+		w.o.stat.W(55)
 	}
 }
 func (w *ANDWorld) TimerExpire() {
@@ -560,7 +624,7 @@ func (w *ANDWorld) TimerExpire() {
 			info.sjnp || info.sjnc > 3 {
 			continue
 		}
-		w.o.stat.W(60)
+		w.o.stat.W(56)
 
 		sjn_mem = append(sjn_mem, abyss.ANDPeerSessionInfo{
 			PeerHash:  info.s.Peer.IDHash(),
@@ -576,14 +640,14 @@ func (w *ANDWorld) TimerExpire() {
 		}
 		member_count++
 		if len(sjn_mem) != 0 {
-			w.o.stat.W(61)
+			w.o.stat.W(57)
 
 			info.s.Peer.TrySendSJN(w.lsid, info.s.PeerSessionID, sjn_mem)
 		}
 	}
 
 	if !w.is_closed {
-		w.o.stat.W(62)
+		w.o.stat.W(58)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDTimerRequest,
@@ -596,12 +660,12 @@ func (w *ANDWorld) TimerExpire() {
 func (w *ANDWorld) RemovePeer(peer abyss.IANDPeer) {
 	info, ok := w.peers[peer.IDHash()]
 	if !ok {
-		w.o.stat.W(63)
+		w.o.stat.W(59)
 		return
 	}
 	switch info.state {
 	case WS_TMEM:
-		w.o.stat.W(64)
+		w.o.stat.W(60)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDSessionReady,
@@ -614,7 +678,7 @@ func (w *ANDWorld) RemovePeer(peer abyss.IANDPeer) {
 			ANDPeerSession: info.s,
 		}
 	case WS_MEM:
-		w.o.stat.W(65)
+		w.o.stat.W(61)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDSessionReady,
@@ -622,19 +686,19 @@ func (w *ANDWorld) RemovePeer(peer abyss.IANDPeer) {
 			ANDPeerSession: info.s,
 		}
 	default:
-		w.o.stat.W(66)
+		w.o.stat.W(62)
 	}
 	delete(w.peers, peer.IDHash())
 }
 func (w *ANDWorld) Close() {
 	for _, info := range w.peers {
 		if info.s.Peer != nil {
-			w.o.stat.W(67)
+			w.o.stat.W(63)
 			info.s.Peer.TrySendRST(w.lsid, uuid.Nil)
 		}
 		switch info.state {
 		case WS_JT:
-			w.o.stat.W(68)
+			w.o.stat.W(64)
 
 			w.ech <- abyss.NeighborEvent{
 				Type:           abyss.ANDJoinFail,
@@ -643,7 +707,7 @@ func (w *ANDWorld) Close() {
 				Value:          JNC_CANCELED,
 			}
 		case WS_TMEM:
-			w.o.stat.W(69)
+			w.o.stat.W(65)
 
 			w.ech <- abyss.NeighborEvent{
 				Type:           abyss.ANDSessionReady,
@@ -656,7 +720,7 @@ func (w *ANDWorld) Close() {
 				ANDPeerSession: info.s,
 			}
 		case WS_MEM:
-			w.o.stat.W(70)
+			w.o.stat.W(66)
 
 			w.ech <- abyss.NeighborEvent{
 				Type:           abyss.ANDSessionClose,
@@ -664,11 +728,11 @@ func (w *ANDWorld) Close() {
 				ANDPeerSession: info.s,
 			}
 		default:
-			w.o.stat.W(71)
+			w.o.stat.W(67)
 		}
 	}
 	if !w.is_closed {
-		w.o.stat.W(72)
+		w.o.stat.W(68)
 
 		w.ech <- abyss.NeighborEvent{
 			Type:           abyss.ANDWorldLeave,
