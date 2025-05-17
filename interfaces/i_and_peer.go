@@ -13,12 +13,12 @@ type ANDPeerSession struct {
 	PeerSessionID uuid.UUID
 }
 
-type ANDPeerSessionInfo struct {
+type ANDPeerSessionIdentity struct {
 	PeerHash  string
 	SessionID uuid.UUID
 }
 
-type ANDFullPeerSessionInfo struct {
+type ANDFullPeerSessionIdentity struct {
 	AURL                       *aurl.AURL
 	SessionID                  uuid.UUID
 	RootCertificateDer         []byte
@@ -47,8 +47,8 @@ type IANDPeer interface {
 	TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool
 	TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session ANDPeerSession) bool
 	TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool
-	TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
-	TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionInfo) bool
+	TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
+	TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
 	TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool
 
 	TrySendSOA(local_session_id uuid.UUID, peer_session_id uuid.UUID, objects []ObjectInfo) bool

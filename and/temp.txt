@@ -1,0 +1,48 @@
+
+type JNISenderMap struct {
+	inner       *list.List
+	direct_wsid uuid.UUID
+}
+
+func MakeJNISenderMap() JNISenderMap {
+	result := JNISenderMap{
+		inner:       list.New(),
+		direct_wsid: uuid.Nil,
+	}
+	result.inner.Init()
+	return result
+}
+
+type JNIInfo struct {
+	sender_id    string
+	subject_wsid uuid.UUID
+}
+
+func (m *JNISenderMap) JNIExist(subject_wsid uuid.UUID) bool {
+	for e := m.inner.Front(); e != nil; e = e.Next() {
+		if e.Value.(JNIInfo).subject_wsid == subject_wsid {
+			return true
+		}
+	}
+
+	return false
+}
+func (m *JNISenderMap) Len() int {
+	return m.inner.Len()
+}
+
+func (m *JNISenderMap) Update(sender_id string, subject_wsid uuid.UUID) {
+	for e := m.inner.Front(); e != nil; e = e.Next() {
+		if e.Value.(JNIInfo).sender_id == sender_id {
+			e.Value = JNIInfo{sender_id, subject_wsid}
+			return
+		}
+	}
+
+	m.inner.PushBack(JNIInfo{sender_id, subject_wsid})
+}
+func (m *JNISenderMap) Finalize(wsid uuid.UUID) {
+	m.inner.Init()
+	m.direct_wsid = wsid
+	return
+}

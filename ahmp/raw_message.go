@@ -65,16 +65,16 @@ func (r *RawJOK) TryParse() (*JOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	neig, ok := functional.Filter_strict_ok(r.Neighbors, func(i RawSessionInfoForDiscovery) (abyss.ANDFullPeerSessionInfo, bool) {
+	neig, ok := functional.Filter_strict_ok(r.Neighbors, func(i RawSessionInfoForDiscovery) (abyss.ANDFullPeerSessionIdentity, bool) {
 		abyss_url, err := aurl.TryParse(i.AURL)
 		if err != nil {
-			return abyss.ANDFullPeerSessionInfo{}, false
+			return abyss.ANDFullPeerSessionIdentity{}, false
 		}
 		psid, err := uuid.Parse(i.SessionID)
 		if err != nil {
-			return abyss.ANDFullPeerSessionInfo{}, false
+			return abyss.ANDFullPeerSessionIdentity{}, false
 		}
-		return abyss.ANDFullPeerSessionInfo{
+		return abyss.ANDFullPeerSessionIdentity{
 			AURL:                       abyss_url,
 			SessionID:                  psid,
 			RootCertificateDer:         i.RootCertificateDer,
@@ -125,7 +125,7 @@ func (r *RawJNI) TryParse() (*JNI, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &JNI{ssid, rsid, abyss.ANDFullPeerSessionInfo{AURL: abyss_url, SessionID: psid, RootCertificateDer: r.Neighbor.RootCertificateDer, HandshakeKeyCertificateDer: r.Neighbor.HandshakeKeyCertificateDer}}, nil
+	return &JNI{ssid, rsid, abyss.ANDFullPeerSessionIdentity{AURL: abyss_url, SessionID: psid, RootCertificateDer: r.Neighbor.RootCertificateDer, HandshakeKeyCertificateDer: r.Neighbor.HandshakeKeyCertificateDer}}, nil
 }
 
 type RawMEM struct {
@@ -161,9 +161,9 @@ func (r *RawSJN) TryParse() (*SJN, error) {
 		return nil, err
 	}
 	infos, _, err := functional.Filter_until_err(r.MemberInfos,
-		func(info_raw RawSessionInfoForSJN) (abyss.ANDPeerSessionInfo, error) {
+		func(info_raw RawSessionInfoForSJN) (abyss.ANDPeerSessionIdentity, error) {
 			id, err := uuid.Parse(info_raw.SessionID)
-			return abyss.ANDPeerSessionInfo{
+			return abyss.ANDPeerSessionIdentity{
 				PeerHash:  info_raw.PeerHash,
 				SessionID: id,
 			}, err
@@ -190,9 +190,9 @@ func (r *RawCRR) TryParse() (*CRR, error) {
 		return nil, err
 	}
 	infos, _, err := functional.Filter_until_err(r.MemberInfos,
-		func(info_raw RawSessionInfoForSJN) (abyss.ANDPeerSessionInfo, error) {
+		func(info_raw RawSessionInfoForSJN) (abyss.ANDPeerSessionIdentity, error) {
 			id, err := uuid.Parse(info_raw.SessionID)
-			return abyss.ANDPeerSessionInfo{
+			return abyss.ANDPeerSessionIdentity{
 				PeerHash:  info_raw.PeerHash,
 				SessionID: id,
 			}, err

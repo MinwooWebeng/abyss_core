@@ -61,12 +61,12 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 
 	//ahmp messages
 	JN(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
-	JOK(local_session_id uuid.UUID, peer_session ANDPeerSession, world_url string, member_sessions []ANDFullPeerSessionInfo) ANDERROR
+	JOK(local_session_id uuid.UUID, peer_session ANDPeerSession, world_url string, member_sessions []ANDFullPeerSessionIdentity) ANDERROR
 	JDN(local_session_id uuid.UUID, peer IANDPeer, code int, message string) ANDERROR
-	JNI(local_session_id uuid.UUID, peer_session ANDPeerSession, member_session ANDFullPeerSessionInfo) ANDERROR
+	JNI(local_session_id uuid.UUID, peer_session ANDPeerSession, member_session ANDFullPeerSessionIdentity) ANDERROR
 	MEM(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
-	SJN(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionInfo) ANDERROR
-	CRR(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionInfo) ANDERROR
+	SJN(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionIdentity) ANDERROR
+	CRR(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionIdentity) ANDERROR
 	RST(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
 
 	SOA(local_session_id uuid.UUID, peer_session ANDPeerSession, objects []ObjectInfo) ANDERROR

@@ -163,7 +163,7 @@ func (a *AND) JN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) 
 	world.JN(peer_session)
 	return 0
 }
-func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, world_url string, member_infos []abyss.ANDFullPeerSessionInfo) abyss.ANDERROR {
+func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, world_url string, member_infos []abyss.ANDFullPeerSessionIdentity) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -188,10 +188,10 @@ func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, mes
 	}
 	a.stat.B(19)
 
-	world.JDN(peer) // after, world should be manually closed from application-side.
+	world.JDN(peer, code, message) // after, world should be manually closed from application-side.
 	return 0
 }
-func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_info abyss.ANDFullPeerSessionInfo) abyss.ANDERROR {
+func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_info abyss.ANDFullPeerSessionIdentity) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -219,7 +219,7 @@ func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 	world.MEM(peer_session)
 	return 0
 }
-func (a *AND) SJN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
+func (a *AND) SJN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionIdentity) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -233,7 +233,7 @@ func (a *AND) SJN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	world.SJN(peer_session, member_infos)
 	return 0
 }
-func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionInfo) abyss.ANDERROR {
+func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionIdentity) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 

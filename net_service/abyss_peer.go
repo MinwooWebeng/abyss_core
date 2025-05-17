@@ -148,11 +148,11 @@ func (p *ContextedPeer) TrySendMEM(local_session_id uuid.UUID, peer_session_id u
 		RecverSessionID: peer_session_id.String(),
 	})
 }
-func (p *ContextedPeer) TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
+func (p *ContextedPeer) TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionIdentity) bool {
 	return p._trySend2(ahmp.SJN_T, ahmp.RawSJN{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
-		MemberInfos: functional.Filter(member_sessions, func(i abyss.ANDPeerSessionInfo) ahmp.RawSessionInfoForSJN {
+		MemberInfos: functional.Filter(member_sessions, func(i abyss.ANDPeerSessionIdentity) ahmp.RawSessionInfoForSJN {
 			return ahmp.RawSessionInfoForSJN{
 				PeerHash:  i.PeerHash,
 				SessionID: i.SessionID.String(),
@@ -160,11 +160,11 @@ func (p *ContextedPeer) TrySendSJN(local_session_id uuid.UUID, peer_session_id u
 		}),
 	})
 }
-func (p *ContextedPeer) TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionInfo) bool {
+func (p *ContextedPeer) TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionIdentity) bool {
 	return p._trySend2(ahmp.CRR_T, ahmp.RawCRR{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
-		MemberInfos: functional.Filter(member_sessions, func(i abyss.ANDPeerSessionInfo) ahmp.RawSessionInfoForSJN {
+		MemberInfos: functional.Filter(member_sessions, func(i abyss.ANDPeerSessionIdentity) ahmp.RawSessionInfoForSJN {
 			return ahmp.RawSessionInfoForSJN{
 				PeerHash:  i.PeerHash,
 				SessionID: i.SessionID.String(),
