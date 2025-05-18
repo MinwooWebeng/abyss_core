@@ -2,6 +2,7 @@ package ahmp
 
 import (
 	"errors"
+	"time"
 
 	"github.com/MinwooWebeng/abyss_core/aurl"
 	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
@@ -13,6 +14,7 @@ import (
 type RawSessionInfoForDiscovery struct {
 	AURL                       string
 	SessionID                  string
+	TimeStamp                  time.Time
 	RootCertificateDer         []byte
 	HandshakeKeyCertificateDer []byte
 }
@@ -39,6 +41,7 @@ const (
 type RawJN struct {
 	SenderSessionID string
 	Text            string
+	TimeStamp       int64
 }
 
 func (r *RawJN) TryParse() (*JN, error) {
@@ -46,7 +49,7 @@ func (r *RawJN) TryParse() (*JN, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &JN{ssid, r.Text}, nil
+	return &JN{ssid, r.Text, time.Unix(0, r.TimeStamp)}, nil
 }
 
 type RawJOK struct {
@@ -77,6 +80,7 @@ func (r *RawJOK) TryParse() (*JOK, error) {
 		return abyss.ANDFullPeerSessionIdentity{
 			AURL:                       abyss_url,
 			SessionID:                  psid,
+			TimeStamp:                  i.TimeStamp,
 			RootCertificateDer:         i.RootCertificateDer,
 			HandshakeKeyCertificateDer: i.HandshakeKeyCertificateDer,
 		}, true
@@ -125,7 +129,13 @@ func (r *RawJNI) TryParse() (*JNI, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &JNI{ssid, rsid, abyss.ANDFullPeerSessionIdentity{AURL: abyss_url, SessionID: psid, RootCertificateDer: r.Neighbor.RootCertificateDer, HandshakeKeyCertificateDer: r.Neighbor.HandshakeKeyCertificateDer}}, nil
+	return &JNI{ssid, rsid, abyss.ANDFullPeerSessionIdentity{
+		AURL:                       abyss_url,
+		SessionID:                  psid,
+		TimeStamp:                  r.Neighbor.TimeStamp,
+		RootCertificateDer:         r.Neighbor.RootCertificateDer,
+		HandshakeKeyCertificateDer: r.Neighbor.HandshakeKeyCertificateDer,
+	}}, nil
 }
 
 type RawMEM struct {

@@ -23,8 +23,8 @@ const (
 )
 
 type ANDPeerSessionState struct {
-	p     abyss.IANDPeer
-	wsid  uuid.UUID
+	//latest
+	abyss.ANDPeerSessionWithTimeStamp
 	state int
 	t_mem time.Time //member confirm timestamp
 	sjnp  bool      //is sjn suppressed
@@ -54,7 +54,7 @@ func (w *ANDWorld) CheckSanity() {
 
 		switch peer.state {
 		case WS_DC_JT:
-			if peer.p.IDHash() != w.join_hash {
+			if peer.Peer.IDHash() != w.join_hash {
 				panic("and sanity check failed: join target mismatch(1)")
 			}
 			jc++
@@ -64,7 +64,7 @@ func (w *ANDWorld) CheckSanity() {
 			}
 		case WS_CC:
 		case WS_JT:
-			if peer.p.IDHash() != w.join_hash {
+			if peer.Peer.IDHash() != w.join_hash {
 				panic("and sanity check failed: join target mismatch(2)")
 			}
 			jc++

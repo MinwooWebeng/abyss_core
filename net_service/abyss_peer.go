@@ -3,6 +3,7 @@ package net_service
 import (
 	"net"
 	"sync"
+	"time"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/google/uuid"
@@ -106,16 +107,18 @@ func (p *ContextedPeer) TrySendJN(local_session_id uuid.UUID, path string) bool 
 	return p._trySend2(ahmp.JN_T, ahmp.RawJN{
 		SenderSessionID: local_session_id.String(),
 		Text:            path,
+		TimeStamp:       time.Now().UnixNano(),
 	})
 }
-func (p *ContextedPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSession) bool {
+func (p *ContextedPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSessionWithTimeStamp) bool {
 	return p._trySend2(ahmp.JOK_T, ahmp.RawJOK{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
-		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSession) ahmp.RawSessionInfoForDiscovery {
+		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSessionWithTimeStamp) ahmp.RawSessionInfoForDiscovery {
 			return ahmp.RawSessionInfoForDiscovery{
 				AURL:                       session.Peer.AURL().ToString(),
 				SessionID:                  session.PeerSessionID.String(),
+				TimeStamp:                  session.TimeStamp,
 				RootCertificateDer:         session.Peer.RootCertificateDer(),
 				HandshakeKeyCertificateDer: session.Peer.HandshakeKeyCertificateDer(),
 			}
@@ -130,13 +133,14 @@ func (p *ContextedPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message 
 		Code:            code,
 	})
 }
-func (p *ContextedPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session abyss.ANDPeerSession) bool {
+func (p *ContextedPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session abyss.ANDPeerSessionWithTimeStamp) bool {
 	return p._trySend2(ahmp.JNI_T, ahmp.RawJNI{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
 		Neighbor: ahmp.RawSessionInfoForDiscovery{
 			AURL:                       member_session.Peer.AURL().ToString(),
 			SessionID:                  member_session.PeerSessionID.String(),
+			TimeStamp:                  member_session.TimeStamp,
 			RootCertificateDer:         member_session.Peer.RootCertificateDer(),
 			HandshakeKeyCertificateDer: member_session.Peer.HandshakeKeyCertificateDer(),
 		},

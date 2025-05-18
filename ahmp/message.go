@@ -1,6 +1,8 @@
 package ahmp
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 
 	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
@@ -9,6 +11,7 @@ import (
 type JN struct {
 	SenderSessionID uuid.UUID
 	Text            string
+	TimeStamp       time.Time
 }
 type JOK struct {
 	SenderSessionID uuid.UUID

@@ -1,6 +1,8 @@
 package interfaces
 
 import (
+	"time"
+
 	"github.com/MinwooWebeng/abyss_core/aurl"
 
 	"github.com/google/uuid"
@@ -60,7 +62,7 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 	TimerExpire(local_session_id uuid.UUID) ANDERROR
 
 	//ahmp messages
-	JN(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
+	JN(local_session_id uuid.UUID, peer_session ANDPeerSession, timestamp time.Time) ANDERROR
 	JOK(local_session_id uuid.UUID, peer_session ANDPeerSession, world_url string, member_sessions []ANDFullPeerSessionIdentity) ANDERROR
 	JDN(local_session_id uuid.UUID, peer IANDPeer, code int, message string) ANDERROR
 	JNI(local_session_id uuid.UUID, peer_session ANDPeerSession, member_session ANDFullPeerSessionIdentity) ANDERROR

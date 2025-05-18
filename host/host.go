@@ -233,7 +233,7 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 				if !ok {
 					continue // TODO: respond with proper error code
 				}
-				and_result = h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+				and_result = h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.TimeStamp)
 			case *ahmp.JOK:
 				and_result = h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Text, message.Neighbors)
 			case *ahmp.JDN:

@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+	"time"
 
 	"github.com/MinwooWebeng/abyss_core/aurl"
 
@@ -13,6 +14,11 @@ type ANDPeerSession struct {
 	PeerSessionID uuid.UUID
 }
 
+type ANDPeerSessionWithTimeStamp struct {
+	ANDPeerSession
+	TimeStamp time.Time
+}
+
 type ANDPeerSessionIdentity struct {
 	PeerHash  string
 	SessionID uuid.UUID
@@ -21,6 +27,7 @@ type ANDPeerSessionIdentity struct {
 type ANDFullPeerSessionIdentity struct {
 	AURL                       *aurl.AURL
 	SessionID                  uuid.UUID
+	TimeStamp                  time.Time
 	RootCertificateDer         []byte
 	HandshakeKeyCertificateDer []byte
 }
@@ -43,9 +50,9 @@ type IANDPeer interface {
 	AhmpCh() chan any
 
 	TrySendJN(local_session_id uuid.UUID, path string) bool
-	TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []ANDPeerSession) bool
+	TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []ANDPeerSessionWithTimeStamp) bool
 	TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool
-	TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session ANDPeerSession) bool
+	TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session ANDPeerSessionWithTimeStamp) bool
 	TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool
 	TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
 	TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
