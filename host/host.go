@@ -235,13 +235,13 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 				}
 				and_result = h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.TimeStamp)
 			case *ahmp.JOK:
-				and_result = h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Text, message.Neighbors)
+				and_result = h.neighborDiscoveryAlgorithm.JOK(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.TimeStamp, message.Text, message.Neighbors)
 			case *ahmp.JDN:
 				and_result = h.neighborDiscoveryAlgorithm.JDN(message.RecverSessionID, peer, message.Code, message.Text)
 			case *ahmp.JNI:
 				and_result = h.neighborDiscoveryAlgorithm.JNI(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Neighbor)
 			case *ahmp.MEM:
-				and_result = h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+				and_result = h.neighborDiscoveryAlgorithm.MEM(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.TimeStamp)
 			case *ahmp.SJN:
 				and_result = h.neighborDiscoveryAlgorithm.SJN(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.MemberInfos)
 			case *ahmp.CRR:
