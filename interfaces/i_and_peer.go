@@ -49,11 +49,11 @@ type IANDPeer interface {
 
 	AhmpCh() chan any
 
-	TrySendJN(local_session_id uuid.UUID, path string) bool
-	TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []ANDPeerSessionWithTimeStamp) bool
+	TrySendJN(local_session_id uuid.UUID, path string, timestamp time.Time) bool
+	TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, timestamp time.Time, world_url string, member_sessions []ANDPeerSessionWithTimeStamp) bool
 	TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool
 	TrySendJNI(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_session ANDPeerSessionWithTimeStamp) bool
-	TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool
+	TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID, timestamp time.Time) bool
 	TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
 	TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
 	TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool

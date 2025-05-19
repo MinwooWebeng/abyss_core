@@ -103,14 +103,14 @@ func (p *ContextedPeer) _trySend2(v int, w any) bool {
 	return type_sent && body_sent
 }
 
-func (p *ContextedPeer) TrySendJN(local_session_id uuid.UUID, path string) bool {
+func (p *ContextedPeer) TrySendJN(local_session_id uuid.UUID, path string, timestamp time.Time) bool {
 	return p._trySend2(ahmp.JN_T, ahmp.RawJN{
 		SenderSessionID: local_session_id.String(),
 		Text:            path,
-		TimeStamp:       time.Now().UnixNano(),
+		TimeStamp:       timestamp.Unix(),
 	})
 }
-func (p *ContextedPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, world_url string, member_sessions []abyss.ANDPeerSessionWithTimeStamp) bool {
+func (p *ContextedPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, timestamp time.Time, world_url string, member_sessions []abyss.ANDPeerSessionWithTimeStamp) bool {
 	return p._trySend2(ahmp.JOK_T, ahmp.RawJOK{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
@@ -146,7 +146,7 @@ func (p *ContextedPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id u
 		},
 	})
 }
-func (p *ContextedPeer) TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
+func (p *ContextedPeer) TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID, timestamp time.Time) bool {
 	return p._trySend2(ahmp.MEM_T, ahmp.RawMEM{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),

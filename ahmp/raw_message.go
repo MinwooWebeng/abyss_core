@@ -55,8 +55,9 @@ func (r *RawJN) TryParse() (*JN, error) {
 type RawJOK struct {
 	SenderSessionID string
 	RecverSessionID string
-	Neighbors       []RawSessionInfoForDiscovery
+	TimeStamp       int64
 	Text            string
+	Neighbors       []RawSessionInfoForDiscovery
 }
 
 func (r *RawJOK) TryParse() (*JOK, error) {
@@ -88,13 +89,13 @@ func (r *RawJOK) TryParse() (*JOK, error) {
 	if !ok {
 		return nil, errors.New("failed to parse session information")
 	}
-	return &JOK{ssid, rsid, neig, r.Text}, nil
+	return &JOK{ssid, rsid, time.Unix(0, r.TimeStamp), neig, r.Text}, nil
 }
 
 type RawJDN struct {
 	RecverSessionID string
-	Text            string
 	Code            int
+	Text            string
 }
 
 func (r *RawJDN) TryParse() (*JDN, error) {
@@ -141,6 +142,7 @@ func (r *RawJNI) TryParse() (*JNI, error) {
 type RawMEM struct {
 	SenderSessionID string
 	RecverSessionID string
+	TimeStamp       int64
 }
 
 func (r *RawMEM) TryParse() (*MEM, error) {
@@ -152,7 +154,7 @@ func (r *RawMEM) TryParse() (*MEM, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MEM{ssid, rsid}, nil
+	return &MEM{ssid, rsid, time.Unix(0, r.TimeStamp)}, nil
 }
 
 type RawSJN struct {

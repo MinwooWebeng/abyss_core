@@ -63,10 +63,10 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 
 	//ahmp messages
 	JN(local_session_id uuid.UUID, peer_session ANDPeerSession, timestamp time.Time) ANDERROR
-	JOK(local_session_id uuid.UUID, peer_session ANDPeerSession, world_url string, member_sessions []ANDFullPeerSessionIdentity) ANDERROR
+	JOK(local_session_id uuid.UUID, peer_session ANDPeerSession, timestamp time.Time, world_url string, member_sessions []ANDFullPeerSessionIdentity) ANDERROR
 	JDN(local_session_id uuid.UUID, peer IANDPeer, code int, message string) ANDERROR
 	JNI(local_session_id uuid.UUID, peer_session ANDPeerSession, member_session ANDFullPeerSessionIdentity) ANDERROR
-	MEM(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
+	MEM(local_session_id uuid.UUID, peer_session ANDPeerSession, timestamp time.Time) ANDERROR
 	SJN(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionIdentity) ANDERROR
 	CRR(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionIdentity) ANDERROR
 	RST(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR

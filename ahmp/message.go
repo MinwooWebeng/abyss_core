@@ -16,6 +16,7 @@ type JN struct {
 type JOK struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
+	TimeStamp       time.Time
 	Neighbors       []abyss.ANDFullPeerSessionIdentity
 	Text            string
 }
@@ -32,6 +33,7 @@ type JNI struct {
 type MEM struct {
 	SenderSessionID uuid.UUID
 	RecverSessionID uuid.UUID
+	TimeStamp       time.Time
 }
 type SJN struct {
 	SenderSessionID uuid.UUID

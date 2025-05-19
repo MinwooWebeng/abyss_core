@@ -11,6 +11,7 @@ const (
 	//Accepter-side response
 	JNC_COLLISION      = 520
 	JNC_INVALID_STATES = 521
+	JNC_EXPIRED        = 530
 	JNC_RESET          = 598
 	JNC_REJECTED       = 599
 )
@@ -24,6 +25,7 @@ const (
 
 	JNM_COLLISION      = "Session ID Collided"
 	JNM_INVALID_STATES = "Invalid States"
+	JNM_EXPIRED        = "Join Expired"
 	JNM_RESET          = "Reset Requested"
 	JNM_REJECTED       = "Join Rejected"
 )

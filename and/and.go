@@ -161,10 +161,10 @@ func (a *AND) JN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, 
 	}
 	a.stat.B(15)
 
-	world.JN(peer_session)
+	world.JN(peer_session, timestamp)
 	return 0
 }
-func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, world_url string, member_infos []abyss.ANDFullPeerSessionIdentity) abyss.ANDERROR {
+func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, timestamp time.Time, world_url string, member_infos []abyss.ANDFullPeerSessionIdentity) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -175,7 +175,7 @@ func (a *AND) JOK(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	}
 	a.stat.B(17)
 
-	world.JOK(peer_session, world_url, member_infos)
+	world.JOK(peer_session, timestamp, world_url, member_infos)
 	return 0
 }
 func (a *AND) JDN(local_session_id uuid.UUID, peer abyss.IANDPeer, code int, message string) abyss.ANDERROR {
@@ -206,7 +206,7 @@ func (a *AND) JNI(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	world.JNI(peer_session, member_info)
 	return 0
 }
-func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) abyss.ANDERROR {
+func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, timestamp time.Time) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -217,7 +217,7 @@ func (a *AND) MEM(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession)
 	}
 	a.stat.B(23)
 
-	world.MEM(peer_session)
+	world.MEM(peer_session, timestamp)
 	return 0
 }
 func (a *AND) SJN(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, member_infos []abyss.ANDPeerSessionIdentity) abyss.ANDERROR {
