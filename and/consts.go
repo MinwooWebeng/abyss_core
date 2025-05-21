@@ -4,6 +4,7 @@ const (
 	JNC_REDUNDANT = 110
 
 	//Joiner-side problem
+	JNC_NOT_FOUND = 404
 	JNC_DUPLICATE = 480
 	JNC_CANCELED  = 498
 	JNC_CLOSED    = 499
@@ -19,6 +20,7 @@ const (
 const (
 	JNM_REDUNDANT = "Already Joined"
 
+	JNM_NOT_FOUND = "Not Found"
 	JNM_DUPLICATE = "Duplicate Join"
 	JNM_CANCELED  = "Join Canceled"
 	JNM_CLOSED    = "Peer Disconnected"

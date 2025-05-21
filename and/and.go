@@ -25,7 +25,7 @@ type AND struct {
 
 func NewAND(local_hash string) *AND {
 	return &AND{
-		eventCh:    make(chan abyss.NeighborEvent, 64),
+		eventCh:    make(chan abyss.NeighborEvent, 128),
 		local_hash: local_hash,
 		peers:      make(map[string]abyss.IANDPeer),
 		worlds:     make(map[uuid.UUID]*ANDWorld),

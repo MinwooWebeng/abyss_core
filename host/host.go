@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/MinwooWebeng/abyss_core/ahmp"
+	"github.com/MinwooWebeng/abyss_core/and"
 	"github.com/MinwooWebeng/abyss_core/aurl"
 	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
 	"github.com/MinwooWebeng/abyss_core/tools/functional"
@@ -231,6 +232,7 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 			case *ahmp.JN:
 				local_session_id, ok := h.pathResolver.PathToSessionID(message.Text, peer.IDHash())
 				if !ok {
+					peer.TrySendJDN(message.SenderSessionID, and.JNC_NOT_FOUND, and.JNM_NOT_FOUND)
 					continue // TODO: respond with proper error code
 				}
 				and_result = h.neighborDiscoveryAlgorithm.JN(local_session_id, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.TimeStamp)

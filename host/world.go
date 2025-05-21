@@ -18,7 +18,7 @@ func NewWorld(origin abyss.INeighborDiscovery, session_id uuid.UUID, url string)
 		origin:       origin,
 		session_id:   session_id,
 		url:          url,
-		eventChannel: make(chan any, 16),
+		eventChannel: make(chan any, 128),
 	}
 }
 
