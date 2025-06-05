@@ -70,8 +70,7 @@ type ANDWorld struct {
 	wurl      string                          //const
 	peers     map[string]*ANDPeerSessionState //key: hash
 
-	ech       chan abyss.NeighborEvent
-	is_closed bool
+	ech chan abyss.NeighborEvent
 }
 
 func (w *ANDWorld) CheckSanity() {
@@ -115,7 +114,6 @@ func NewWorldOpen(origin *AND, local_hash string, local_session_id uuid.UUID, wo
 		wurl:      world_url,
 		peers:     make(map[string]*ANDPeerSessionState),
 		ech:       event_ch,
-		is_closed: false,
 	}
 	for peer_id, peer := range connected_members {
 		origin.stat.W(0)
@@ -145,7 +143,6 @@ func NewWorldJoin(origin *AND, local_hash string, local_session_id uuid.UUID, ta
 		join_path: target.Path,
 		peers:     make(map[string]*ANDPeerSessionState),
 		ech:       event_ch,
-		is_closed: false,
 	}
 	is_join_target_connected := false
 	for peer_id, peer := range connected_members {
@@ -817,14 +814,10 @@ func (w *ANDWorld) TimerExpire() {
 		}
 	}
 
-	if !w.is_closed {
-		w.o.stat.W(74)
-
-		w.ech <- abyss.NeighborEvent{
-			Type:           abyss.ANDTimerRequest,
-			LocalSessionID: w.lsid,
-			Value:          300 + rand.Intn(300*(member_count+1)),
-		}
+	w.ech <- abyss.NeighborEvent{
+		Type:           abyss.ANDTimerRequest,
+		LocalSessionID: w.lsid,
+		Value:          300 + rand.Intn(300*(member_count+1)),
 	}
 }
 
@@ -861,13 +854,10 @@ func (w *ANDWorld) Close() {
 			w.o.stat.W(78)
 		}
 	}
-	if !w.is_closed {
-		w.o.stat.W(79)
+	w.o.stat.W(79)
 
-		w.ech <- abyss.NeighborEvent{
-			Type:           abyss.ANDWorldLeave,
-			LocalSessionID: w.lsid,
-		}
+	w.ech <- abyss.NeighborEvent{
+		Type:           abyss.ANDWorldLeave,
+		LocalSessionID: w.lsid,
 	}
-	w.is_closed = true
 }
