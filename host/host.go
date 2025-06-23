@@ -97,9 +97,10 @@ func (h *AbyssHost) OpenWorld(world_url string) (abyss.IAbyssWorld, error) {
 	h.join_q_mtx.Unlock()
 
 	retval := h.neighborDiscoveryAlgorithm.OpenWorld(local_session_id, world_url)
-	if retval == abyss.EINVAL {
+	switch retval {
+	case abyss.EINVAL:
 		return nil, errors.New("OpenWorld: invalid arguments")
-	} else if retval == abyss.EPANIC {
+	case abyss.EPANIC:
 		panic("fatal:::AND corrupted while opening world")
 	}
 
@@ -121,9 +122,10 @@ func (h *AbyssHost) JoinWorld(ctx context.Context, abyss_url *aurl.AURL) (abyss.
 	h.join_q_mtx.Unlock()
 
 	retval := h.neighborDiscoveryAlgorithm.JoinWorld(local_session_id, abyss_url)
-	if retval == abyss.EINVAL {
+	switch retval {
+	case abyss.EINVAL:
 		return nil, errors.New("failed to join world::unknown error")
-	} else if retval == abyss.EPANIC {
+	case abyss.EPANIC:
 		panic("fatal:::AND corrupted while joining world")
 	}
 
@@ -261,9 +263,10 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 				panic("unknown ahmp message type: This is internal implementation missing. MUST be resolved.")
 			}
 
-			if and_result == abyss.EPANIC {
+			switch and_result {
+			case abyss.EPANIC:
 				panic("AND panic!!!")
-			} else if and_result == abyss.EINVAL {
+			case abyss.EINVAL:
 				fmt.Println("AND: invalid arguments - " + reflect.TypeOf(message_any).String() + fmt.Sprintf("%+v", message_any))
 			}
 		}
