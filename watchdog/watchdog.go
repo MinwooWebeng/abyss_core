@@ -1,6 +1,8 @@
 package watchdog
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"sync/atomic"
@@ -27,20 +29,38 @@ func Init() {
 		Level: log.InfoLevel,
 
 		Writer: &log.ConsoleWriter{
-			Writer: logFile,
+			Writer:    logFile,
+			Formatter: timeMS8Formatter,
 		},
-		// Writer: &log.FileWriter{
-		// 	Filename:     ,
-		// 	FileMode:     0600,
-		// 	MaxSize:      100 * 1024 * 1024, //100MB
-		// 	MaxBackups:   3,
-		// 	EnsureFolder: true,
-		// 	LocalTime:    true,
-		// },
 	}
 
 	handle_count_print_threshold.Store(4)
 	Info("start")
+}
+
+func timeMS8Formatter(w io.Writer, a *log.FormatterArgs) (int, error) {
+	// Local wall-clock time for the moment the record is written.
+	timestamp := time.Now().Local().Format("04:05.00000000") // mm:ss.ffffffff
+
+	// If a stack was attached (e.g. log.Error().Stack().Msg(...)),
+	// print it on a separate line.
+	if len(a.Stack) > 0 {
+		return fmt.Fprintf(
+			w,
+			"%s %-5s %s %s\n%s",
+			timestamp, a.Level, a.Caller, a.Message, a.Stack,
+		)
+	}
+
+	return fmt.Fprintf(
+		w,
+		"%s | %-5s %s\n",
+		timestamp, a.Level, a.Message,
+	)
+}
+
+func InfoV(head string, o any) {
+	Info(head + formatFlatLine(o))
 }
 
 func Info(msg string) {

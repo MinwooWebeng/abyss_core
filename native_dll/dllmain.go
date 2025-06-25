@@ -350,6 +350,7 @@ func Host_JoinWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int, timeout_ms C.
 
 	url_buf, ok := TryUnmarshalBytes(url_ptr, url_len)
 	if !ok {
+		watchdog.Info("failed to unmarshal url")
 		return 0
 	}
 	aurl, err := aurl.TryParse(string(url_buf))
@@ -372,6 +373,17 @@ func Host_JoinWorld(h C.uintptr_t, url_ptr *C.char, url_len C.int, timeout_ms C.
 		origin:   host,
 		event_ch: world.GetEventChannel(),
 	}))
+}
+
+//export Host_WriteANDStatisticsLogFile
+func Host_WriteANDStatisticsLogFile(h C.uintptr_t) C.int {
+	host, ok := cgo.Handle(h).Value().(*abyss_host.AbyssHost)
+	if !ok {
+		return INVALID_HANDLE
+	}
+
+	os.WriteFile("and_stat.txt", []byte(host.GetStatistics()), 0644)
+	return 0
 }
 
 //export World_GetSessionID

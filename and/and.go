@@ -8,6 +8,7 @@ import (
 
 	"github.com/MinwooWebeng/abyss_core/aurl"
 	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
+	"github.com/MinwooWebeng/abyss_core/watchdog"
 )
 
 type AND struct {
@@ -38,6 +39,9 @@ func (a *AND) EventChannel() chan abyss.NeighborEvent {
 }
 
 func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
+	//debug
+	watchdog.Info("appCall::PeerConnected " + peer.IDHash())
+
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -53,6 +57,9 @@ func (a *AND) PeerConnected(peer abyss.IANDPeer) abyss.ANDERROR {
 }
 
 func (a *AND) PeerClose(peer abyss.IANDPeer) abyss.ANDERROR {
+	//debug
+	watchdog.Info("appCall::PeerClose " + peer.IDHash())
+
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -67,6 +74,9 @@ func (a *AND) PeerClose(peer abyss.IANDPeer) abyss.ANDERROR {
 }
 
 func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDERROR {
+	//debug
+	watchdog.Info("appCall::OpenWorld " + local_session_id.String())
+
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -78,6 +88,9 @@ func (a *AND) OpenWorld(local_session_id uuid.UUID, world_url string) abyss.ANDE
 }
 
 func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.ANDERROR {
+	//debug
+	watchdog.Info("appCall::JoinWorld " + local_session_id.String() + " " + abyss_url.Hash)
+
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -89,6 +102,9 @@ func (a *AND) JoinWorld(local_session_id uuid.UUID, abyss_url *aurl.AURL) abyss.
 }
 
 func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) abyss.ANDERROR {
+	//debug
+	watchdog.Info("appCall::AcceptSession " + local_session_id.String() + " " + peer_session.PeerSessionID.String())
+
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -104,6 +120,9 @@ func (a *AND) AcceptSession(local_session_id uuid.UUID, peer_session abyss.ANDPe
 }
 
 func (a *AND) DeclineSession(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, code int, message string) abyss.ANDERROR {
+	//debug
+	watchdog.Info("appCall::DeclineSession " + local_session_id.String() + " " + peer_session.PeerSessionID.String())
+
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -119,6 +138,9 @@ func (a *AND) DeclineSession(local_session_id uuid.UUID, peer_session abyss.ANDP
 }
 
 func (a *AND) CloseWorld(local_session_id uuid.UUID) abyss.ANDERROR {
+	//debug
+	watchdog.Info("appCall::CloseWorld " + local_session_id.String())
+
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
 
@@ -248,9 +270,11 @@ func (a *AND) CRR(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession,
 	world.CRR(peer_session, member_infos)
 	return 0
 }
-func (a *AND) RST(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession) abyss.ANDERROR {
+func (a *AND) RST(local_session_id uuid.UUID, peer_session abyss.ANDPeerSession, message string) abyss.ANDERROR {
 	a.api_mtx.Lock()
 	defer a.api_mtx.Unlock()
+
+	watchdog.Info("RST: " + message)
 
 	if local_session_id != uuid.Nil {
 		world, ok := a.worlds[local_session_id]

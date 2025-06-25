@@ -29,7 +29,7 @@ type ANDStatistics struct {
 	SOD_RX int
 
 	_b [36]int
-	_w [80]int
+	_w [85]int
 }
 
 func (s *ANDStatistics) B(i int) {

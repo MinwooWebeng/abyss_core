@@ -95,6 +95,7 @@ extern __declspec(dllexport) void Host_AppendKnownPeer(uintptr_t h, char* root_c
 extern __declspec(dllexport) int Host_OpenOutboundConnection(uintptr_t h, char* abyss_url_ptr, int abyss_url_len);
 extern __declspec(dllexport) uintptr_t Host_OpenWorld(uintptr_t h, char* url_ptr, int url_len);
 extern __declspec(dllexport) uintptr_t Host_JoinWorld(uintptr_t h, char* url_ptr, int url_len, int timeout_ms);
+extern __declspec(dllexport) int Host_WriteANDStatisticsLogFile(uintptr_t h);
 extern __declspec(dllexport) int World_GetSessionID(uintptr_t h, char* world_ID_out);
 extern __declspec(dllexport) int World_GetURL(uintptr_t h, char* buf_ptr, int buf_len);
 extern __declspec(dllexport) uintptr_t World_WaitEvent(uintptr_t h, int* event_type_out);

@@ -13,6 +13,7 @@ import (
 	"github.com/MinwooWebeng/abyss_core/aurl"
 	abyss "github.com/MinwooWebeng/abyss_core/interfaces"
 	"github.com/MinwooWebeng/abyss_core/tools/functional"
+	"github.com/MinwooWebeng/abyss_core/watchdog"
 )
 
 // Peer Network Complex State
@@ -97,7 +98,8 @@ func (p *ContextedPeer) _trySend(v any) bool {
 	return true
 }
 func (p *ContextedPeer) _trySend2(v int, w any) bool {
-	//fmt.Println(p.inbound_conn.LocalAddr().String() + "->" + p.inbound_conn.RemoteAddr().String() + " " + strconv.Itoa(v))
+	//debug
+	watchdog.InfoV(ahmp.Msg_type_names[v]+"> "+p.inbound_conn.RemoteAddr().String(), w)
 	type_sent := p._trySend(v)
 	body_sent := p._trySend(w)
 	return type_sent && body_sent
@@ -107,23 +109,24 @@ func (p *ContextedPeer) TrySendJN(local_session_id uuid.UUID, path string, times
 	return p._trySend2(ahmp.JN_T, ahmp.RawJN{
 		SenderSessionID: local_session_id.String(),
 		Text:            path,
-		TimeStamp:       timestamp.Unix(),
+		TimeStamp:       timestamp.UnixMilli(),
 	})
 }
 func (p *ContextedPeer) TrySendJOK(local_session_id uuid.UUID, peer_session_id uuid.UUID, timestamp time.Time, world_url string, member_sessions []abyss.ANDPeerSessionWithTimeStamp) bool {
 	return p._trySend2(ahmp.JOK_T, ahmp.RawJOK{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
+		TimeStamp:       timestamp.UnixMilli(),
+		Text:            world_url,
 		Neighbors: functional.Filter(member_sessions, func(session abyss.ANDPeerSessionWithTimeStamp) ahmp.RawSessionInfoForDiscovery {
 			return ahmp.RawSessionInfoForDiscovery{
 				AURL:                       session.Peer.AURL().ToString(),
 				SessionID:                  session.PeerSessionID.String(),
-				TimeStamp:                  session.TimeStamp,
+				TimeStamp:                  session.TimeStamp.UnixMilli(),
 				RootCertificateDer:         session.Peer.RootCertificateDer(),
 				HandshakeKeyCertificateDer: session.Peer.HandshakeKeyCertificateDer(),
 			}
 		}),
-		Text: world_url,
 	})
 }
 func (p *ContextedPeer) TrySendJDN(peer_session_id uuid.UUID, code int, message string) bool {
@@ -140,7 +143,7 @@ func (p *ContextedPeer) TrySendJNI(local_session_id uuid.UUID, peer_session_id u
 		Neighbor: ahmp.RawSessionInfoForDiscovery{
 			AURL:                       member_session.Peer.AURL().ToString(),
 			SessionID:                  member_session.PeerSessionID.String(),
-			TimeStamp:                  member_session.TimeStamp,
+			TimeStamp:                  member_session.TimeStamp.UnixMilli(),
 			RootCertificateDer:         member_session.Peer.RootCertificateDer(),
 			HandshakeKeyCertificateDer: member_session.Peer.HandshakeKeyCertificateDer(),
 		},
@@ -150,6 +153,7 @@ func (p *ContextedPeer) TrySendMEM(local_session_id uuid.UUID, peer_session_id u
 	return p._trySend2(ahmp.MEM_T, ahmp.RawMEM{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
+		TimeStamp:       timestamp.UnixMilli(),
 	})
 }
 func (p *ContextedPeer) TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []abyss.ANDPeerSessionIdentity) bool {
@@ -176,10 +180,11 @@ func (p *ContextedPeer) TrySendCRR(local_session_id uuid.UUID, peer_session_id u
 		}),
 	})
 }
-func (p *ContextedPeer) TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool {
+func (p *ContextedPeer) TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID, message string) bool {
 	return p._trySend2(ahmp.RST_T, ahmp.RawRST{
 		SenderSessionID: local_session_id.String(),
 		RecverSessionID: peer_session_id.String(),
+		Message:         message,
 	})
 }
 

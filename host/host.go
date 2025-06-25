@@ -187,6 +187,10 @@ func (h *AbyssHost) ListenAndServe(ctx context.Context) {
 	<-net_done
 }
 
+func (h *AbyssHost) GetStatistics() string {
+	return h.neighborDiscoveryAlgorithm.Statistics()
+}
+
 func (h *AbyssHost) listenLoop() {
 	var wg sync.WaitGroup
 
@@ -251,7 +255,7 @@ func (h *AbyssHost) serveLoop(peer abyss.IANDPeer) {
 			case *ahmp.CRR:
 				and_result = h.neighborDiscoveryAlgorithm.CRR(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.MemberInfos)
 			case *ahmp.RST:
-				and_result = h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID})
+				and_result = h.neighborDiscoveryAlgorithm.RST(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Message)
 			case *ahmp.SOA:
 				and_result = h.neighborDiscoveryAlgorithm.SOA(message.RecverSessionID, abyss.ANDPeerSession{Peer: peer, PeerSessionID: message.SenderSessionID}, message.Objects)
 			case *ahmp.SOD:

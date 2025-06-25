@@ -14,7 +14,7 @@ import (
 type RawSessionInfoForDiscovery struct {
 	AURL                       string
 	SessionID                  string
-	TimeStamp                  time.Time
+	TimeStamp                  int64
 	RootCertificateDer         []byte
 	HandshakeKeyCertificateDer []byte
 }
@@ -38,6 +38,9 @@ const (
 	SOD_T
 )
 
+// for debug
+var Msg_type_names = [...]string{"JN", "JOK", "JDN", "JNI", "MEM", "SJN", "CRR", "RST", "SOA", "SOD"}
+
 type RawJN struct {
 	SenderSessionID string
 	Text            string
@@ -49,7 +52,7 @@ func (r *RawJN) TryParse() (*JN, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &JN{ssid, r.Text, time.Unix(0, r.TimeStamp)}, nil
+	return &JN{ssid, r.Text, time.UnixMilli(r.TimeStamp)}, nil
 }
 
 type RawJOK struct {
@@ -81,7 +84,7 @@ func (r *RawJOK) TryParse() (*JOK, error) {
 		return abyss.ANDFullPeerSessionIdentity{
 			AURL:                       abyss_url,
 			SessionID:                  psid,
-			TimeStamp:                  i.TimeStamp,
+			TimeStamp:                  time.UnixMilli(i.TimeStamp),
 			RootCertificateDer:         i.RootCertificateDer,
 			HandshakeKeyCertificateDer: i.HandshakeKeyCertificateDer,
 		}, true
@@ -89,7 +92,7 @@ func (r *RawJOK) TryParse() (*JOK, error) {
 	if !ok {
 		return nil, errors.New("failed to parse session information")
 	}
-	return &JOK{ssid, rsid, time.Unix(0, r.TimeStamp), neig, r.Text}, nil
+	return &JOK{ssid, rsid, time.UnixMilli(r.TimeStamp), neig, r.Text}, nil
 }
 
 type RawJDN struct {
@@ -133,7 +136,7 @@ func (r *RawJNI) TryParse() (*JNI, error) {
 	return &JNI{ssid, rsid, abyss.ANDFullPeerSessionIdentity{
 		AURL:                       abyss_url,
 		SessionID:                  psid,
-		TimeStamp:                  r.Neighbor.TimeStamp,
+		TimeStamp:                  time.UnixMilli(r.Neighbor.TimeStamp),
 		RootCertificateDer:         r.Neighbor.RootCertificateDer,
 		HandshakeKeyCertificateDer: r.Neighbor.HandshakeKeyCertificateDer,
 	}}, nil
@@ -154,7 +157,7 @@ func (r *RawMEM) TryParse() (*MEM, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MEM{ssid, rsid, time.Unix(0, r.TimeStamp)}, nil
+	return &MEM{ssid, rsid, time.UnixMilli(r.TimeStamp)}, nil
 }
 
 type RawSJN struct {
@@ -218,6 +221,7 @@ func (r *RawCRR) TryParse() (*CRR, error) {
 type RawRST struct {
 	SenderSessionID string
 	RecverSessionID string
+	Message         string
 }
 
 func (r *RawRST) TryParse() (*RST, error) {
@@ -229,7 +233,7 @@ func (r *RawRST) TryParse() (*RST, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &RST{ssid, rsid}, nil
+	return &RST{ssid, rsid, r.Message}, nil
 }
 
 type RawObjectInfo struct {

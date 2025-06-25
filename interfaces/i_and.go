@@ -69,8 +69,10 @@ type INeighborDiscovery interface { // all calls must be thread-safe
 	MEM(local_session_id uuid.UUID, peer_session ANDPeerSession, timestamp time.Time) ANDERROR
 	SJN(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionIdentity) ANDERROR
 	CRR(local_session_id uuid.UUID, peer_session ANDPeerSession, member_infos []ANDPeerSessionIdentity) ANDERROR
-	RST(local_session_id uuid.UUID, peer_session ANDPeerSession) ANDERROR
+	RST(local_session_id uuid.UUID, peer_session ANDPeerSession, message string) ANDERROR
 
 	SOA(local_session_id uuid.UUID, peer_session ANDPeerSession, objects []ObjectInfo) ANDERROR
 	SOD(local_session_id uuid.UUID, peer_session ANDPeerSession, objectIDs []uuid.UUID) ANDERROR
+
+	Statistics() string
 }

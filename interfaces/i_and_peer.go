@@ -56,7 +56,7 @@ type IANDPeer interface {
 	TrySendMEM(local_session_id uuid.UUID, peer_session_id uuid.UUID, timestamp time.Time) bool
 	TrySendSJN(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
 	TrySendCRR(local_session_id uuid.UUID, peer_session_id uuid.UUID, member_sessions []ANDPeerSessionIdentity) bool
-	TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID) bool
+	TrySendRST(local_session_id uuid.UUID, peer_session_id uuid.UUID, message string) bool
 
 	TrySendSOA(local_session_id uuid.UUID, peer_session_id uuid.UUID, objects []ObjectInfo) bool
 	TrySendSOD(local_session_id uuid.UUID, peer_session_id uuid.UUID, objectIDs []uuid.UUID) bool
