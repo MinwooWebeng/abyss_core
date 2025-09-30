@@ -257,7 +257,7 @@ func NewPeerIdentity(root_self_cert []byte, handshake_key_cert []byte) (*PeerIde
 		return nil, errors.New("issuer mismatch")
 	}
 	if handshake_key_cert_x509.Subject.CommonName != "H-"+root_self_cert_x509.Issuer.CommonName+"-OAEP-SHA3-256-AES-256-GCM" {
-		return nil, errors.New("unsupported public key encryption scheme")
+		return nil, errors.New("unsupported public key encryption scheme: " + handshake_key_cert_x509.Subject.CommonName)
 	}
 	if err := handshake_key_cert_x509.CheckSignatureFrom(root_self_cert_x509); err != nil {
 		return nil, err
