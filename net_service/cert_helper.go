@@ -34,6 +34,11 @@ type PrivateKey interface { //stupid but handy interface, golang should change c
 	Public() crypto.PublicKey
 }
 
+func NewRootPrivateKey() (PrivateKey, error) {
+	_, privkey, err := ed25519.GenerateKey(rand.Reader)
+	return privkey, err
+}
+
 // To generate root key, use ed25519.GenerateKey(rand.Reader)
 func NewRootIdentity(root_private_key PrivateKey) (*RootSecrets, error) {
 	root_public_key := root_private_key.Public()
